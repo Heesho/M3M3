@@ -17,6 +17,7 @@ contract MemeFactory is Ownable {
     address public immutable base;
     address public treasury;
 
+    uint256 public minAmountIn = 100000000000000000; // 0.1 ETH
     uint256 count = 1;
     mapping(uint256=>address) public index_Meme;
     mapping(address=>uint256) public meme_Index;
@@ -29,6 +30,7 @@ contract MemeFactory is Ownable {
     error MemeFactory__SymbolExists();
     error MemeFactory__NameLimitExceeded();
     error MemeFactory__SymbolLimitExceeded();
+    error MemeFactory__InsufficientAmountIn();
 
     /*----------  EVENTS ------------------------------------------------*/
     
@@ -49,6 +51,7 @@ contract MemeFactory is Ownable {
         string memory symbol,
         uint256 amountIn
     ) external returns (address) {
+        if (amountIn < minAmountIn) revert MemeFactory__InsufficientAmountIn();
         if (symbol_Index[symbol] != 0) revert MemeFactory__SymbolExists();
         if (bytes(name).length == 0) revert MemeFactory__NameRequired();
         if (bytes(symbol).length == 0) revert MemeFactory__SymbolRequired();
@@ -74,6 +77,10 @@ contract MemeFactory is Ownable {
 
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
+    }
+
+    function setMinAmountIn(uint256 _minAmountIn) external onlyOwner {
+        minAmountIn = _minAmountIn;
     }
 
     /*----------  VIEW FUNCTIONS  ---------------------------------------*/

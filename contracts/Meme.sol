@@ -163,19 +163,19 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         IERC20(base).transfer(to, amountOut);
     }
 
-    function claimFees() external returns (uint256 claimedBase, uint256 claimedMeme) {
-        _updateFor(msg.sender);
+    function claimFees(address account) external returns (uint256 claimedBase, uint256 claimedMeme) {
+        _updateFor(account);
 
-        claimedBase = claimableBase[msg.sender];
-        claimedMeme = claimableMeme[msg.sender];
+        claimedBase = claimableBase[account];
+        claimedMeme = claimableMeme[account];
 
         if (claimedBase > 0 || claimedMeme > 0) {
-            claimableBase[msg.sender] = 0;
-            claimableMeme[msg.sender] = 0;
+            claimableBase[account] = 0;
+            claimableMeme[account] = 0;
 
-            MemeFees(fees).claimFeesFor(msg.sender, claimedBase, claimedMeme);
+            MemeFees(fees).claimFeesFor(account, claimedBase, claimedMeme);
 
-            emit Meme__Claim(msg.sender, claimedBase, claimedMeme);
+            emit Meme__Claim(account, claimedBase, claimedMeme);
         }
     }
 
