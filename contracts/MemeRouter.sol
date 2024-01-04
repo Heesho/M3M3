@@ -21,6 +21,14 @@ interface IBase {
 contract MemeRouter {
     address public immutable base;
     address public immutable factory;
+
+    mapping(address => address) public referrals; // account => affiliate
+
+    event MemeRouter__Buy(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut);
+    event MemeRouter__Sell(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut);
+    event MemeRouter__AffiliateSet(address indexed account, address indexed affiliate);
+    event MemeRouter__ClaimFees(address indexed meme, address indexed account);
+    event MemeRouter__MemeCreated(address indexed meme, address indexed account);
     
     constructor(address _base, address _factory) {
         base = _base;
@@ -29,15 +37,24 @@ contract MemeRouter {
 
     function buy(
         address meme,
+        address affiliate,
         uint256 minAmountOut,
         uint256 expireTimestamp
     ) external payable {
+        if (referrals[msg.sender] == address(0) && affiliate != address(0)) {
+            referrals[msg.sender] = affiliate;
+            emit MemeRouter__AffiliateSet(msg.sender, affiliate);
+        }
+
         IBase(base).deposit{value: msg.value}();
         IERC20(base).approve(meme, msg.value);
-        IMeme(meme).buy(msg.value, minAmountOut, expireTimestamp, address(this), address(0));
+        IMeme(meme).buy(msg.value, minAmountOut, expireTimestamp, address(this), referrals[msg.sender]);
 
-        IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
+        uint256 memeBalance = IERC20(meme).balanceOf(address(this));
+        IERC20(meme).transfer(msg.sender, memeBalance);
         IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
+
+        emit MemeRouter__Buy(meme, msg.sender, referrals[msg.sender], msg.value, memeBalance);
     }
 
     function sell(
@@ -47,18 +64,21 @@ contract MemeRouter {
         uint256 expireTimestamp
     ) external {
         IERC20(meme).approve(meme, amountIn);
-        IMeme(meme).sell(amountIn, minAmountOut, expireTimestamp, address(this), address(0));
+        IMeme(meme).sell(amountIn, minAmountOut, expireTimestamp, address(this), referrals[msg.sender]);
 
         uint256 baseBalance = IERC20(base).balanceOf(address(this));
         IBase(base).withdraw(baseBalance);
         (bool success, ) = msg.sender.call{value: baseBalance}("");
         require(success, "Failed to send ETH");
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
+
+        emit MemeRouter__Sell(meme, msg.sender, referrals[msg.sender], baseBalance, amountIn);
     }
 
     function claimFees(address[] calldata memes) external {
         for (uint256 i = 0; i < memes.length; i++) {
             IMeme(memes[i]).claimFees(msg.sender);
+            emit MemeRouter__ClaimFees(memes[i], msg.sender);
         }
     }
 
@@ -71,6 +91,7 @@ contract MemeRouter {
         address meme = IMemeFactory(factory).createMeme(name, symbol, msg.value);
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
         IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
+        emit MemeRouter__MemeCreated(meme, msg.sender);
         return meme;
     }
 
