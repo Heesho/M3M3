@@ -55,7 +55,7 @@ describe("local: test0", function () {
     console.log("- Multicall Initialized");
 
     const routerArtifact = await ethers.getContractFactory("MemeRouter");
-    router = await routerArtifact.deploy(base.address, memeFactory.address);
+    router = await routerArtifact.deploy(memeFactory.address, base.address);
     console.log("- Router Initialized");
 
     console.log("- System set up");

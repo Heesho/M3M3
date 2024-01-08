@@ -36,9 +36,9 @@ contract MemeRouter is Ownable {
     event MemeRouter__MemeCreated(address indexed meme, address indexed account);
     event MemeRouter__StatusUpdated(address indexed meme, address indexed account, string status);
     
-    constructor(address _base, address _factory) {
-        base = _base;
+    constructor(address _factory, address _base) {
         factory = _factory;
+        base = _base;
     }
 
     function buy(
