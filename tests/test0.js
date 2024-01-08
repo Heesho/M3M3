@@ -221,18 +221,10 @@ describe("local: test0", function () {
     console.log("******************************************************");
     await meme0
       .connect(user0)
-      .approve(
-        router.address,
-        (await meme0.balanceOf(user0.address)).sub(oneThousand)
-      );
+      .approve(router.address, await meme0.balanceOf(user0.address));
     await router
       .connect(user0)
-      .sell(
-        meme0.address,
-        (await meme0.balanceOf(user0.address)).sub(oneThousand),
-        0,
-        1904422437
-      );
+      .sell(meme0.address, await meme0.balanceOf(user0.address), 0, 1904422437);
   });
 
   it("Meme0, user0", async function () {
@@ -261,14 +253,15 @@ describe("local: test0", function () {
       divDec(await base.balanceOf(await meme0.fees()))
     );
     console.log();
-    console.log("Price: ", divDec(res[8]));
-    console.log("TVL: ", divDec(res[9]));
-    console.log("Total Fees BASE: ", divDec(res[10]));
+    console.log("Floor Price: ", divDec(res[8]));
+    console.log("Market Price: ", divDec(res[9]));
+    console.log("TVL: ", divDec(res[10]));
+    console.log("Total Fees BASE: ", divDec(res[11]));
     console.log();
-    console.log("Account Native: ", divDec(res[11]));
-    console.log("Account BASE: ", divDec(res[12]));
-    console.log("Account MEME: ", divDec(res[13]));
-    console.log("Account Claimable BASE: ", divDec(res[14]));
+    console.log("Account Native: ", divDec(res[12]));
+    console.log("Account BASE: ", divDec(res[13]));
+    console.log("Account MEME: ", divDec(res[14]));
+    console.log("Account Claimable BASE: ", divDec(res[15]));
   });
 
   // it("User0 transfers meme0", async function () {

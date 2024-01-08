@@ -172,16 +172,11 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         public 
         notZeroInput(amount)
     {
-        if (maxSupply > reserveMeme) {
-            // uint256 newReserveMeme = RESERVE_VIRTUAL_BASE * (maxSupply - reserveMeme - amount) / reserveBase;
-            uint256 burnAmount = reserveMeme * amount / (maxSupply - reserveMeme);
-            maxSupply -= (amount + burnAmount);
-            reserveMeme -= burnAmount;
-            _burn(msg.sender, amount);
-        } else {
-            maxSupply -= amount;
-            _burn(msg.sender, amount);
-        }
+        maxSupply -= amount;
+        // if (maxSupply > reserveMeme) {
+        //     reserveVirtBase = (reserveMeme * reserveBase) / (maxSupply - reserveMeme);
+        // }
+        _burn(msg.sender, amount);
     }
 
     /*----------  RESTRICTED FUNCTIONS  ---------------------------------*/

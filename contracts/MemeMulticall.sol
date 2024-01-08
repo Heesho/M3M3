@@ -51,7 +51,8 @@ contract MemeMulticall {
         uint256 reserveRealMeme;
         uint256 maxSupply;
 
-        uint256 price;
+        uint256 floorPrice;
+        uint256 marketPrice;
         uint256 tvl;
         uint256 totalFeesBase;
 
@@ -87,7 +88,8 @@ contract MemeMulticall {
         memeData.reserveRealMeme = IMeme(memeData.meme).reserveMeme();
         memeData.maxSupply = IMeme(memeData.meme).maxSupply();
 
-        memeData.price = IMeme(memeData.meme).getMarketPrice() * getBasePrice() / 1e18;
+        memeData.floorPrice = IMeme(memeData.meme).getFloorPrice() * getBasePrice() / 1e18;
+        memeData.marketPrice = IMeme(memeData.meme).getMarketPrice() * getBasePrice() / 1e18;
         memeData.tvl = (memeData.reserveRealBase + memeData.reserveVirtualBase) * 2 * getBasePrice() / 1e18;
         memeData.totalFeesBase = IMeme(memeData.meme).totalFeesBase();
 
