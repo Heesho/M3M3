@@ -12,6 +12,7 @@ interface IMemeFactory {
 
 interface IMeme {
     function uri() external view returns (string memory);
+    function status() external view returns (string memory);
     function reserveBase() external view returns (uint256);
     function RESERVE_VIRTUAL_BASE() external view returns (uint256);
     function reserveMeme() external view returns (uint256);
@@ -44,7 +45,9 @@ contract MemeMulticall {
         address meme;
         string name;
         string symbol;
+
         string uri;
+        string status;
         
         uint256 reserveVirtualBase;
         uint256 reserveRealBase;
@@ -81,7 +84,9 @@ contract MemeMulticall {
         memeData.meme = IMemeFactory(memeFactory).getMemeByIndex(index);
         memeData.name = IERC20Metadata(memeData.meme).name();
         memeData.symbol = IERC20Metadata(memeData.meme).symbol();
+
         memeData.uri = IMeme(memeData.meme).uri();
+        memeData.status = IMeme(memeData.meme).status();
 
         memeData.reserveVirtualBase = IMeme(memeData.meme).RESERVE_VIRTUAL_BASE();
         memeData.reserveRealBase = IMeme(memeData.meme).reserveBase();

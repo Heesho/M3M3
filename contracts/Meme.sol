@@ -39,6 +39,8 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public constant PROTOCOL_FEE = 2500;
     uint256 public constant PROVIDER_FEE = 2500;
     uint256 public constant DIVISOR = 10000;
+    uint256 public constant STATUS_MAX_LENGTH = 280;
+    uint256 public constant STATUS_UPDATE_FEE = 10 * PRECISION;
 
     /*----------  STATE VARIABLES  --------------------------------------*/
 
@@ -59,12 +61,15 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     mapping(address => uint256) public claimableBase;
 
     string public uri;
+    string public status;
 
     /*----------  ERRORS ------------------------------------------------*/
 
     error Meme__ZeroInput();
     error Meme__Expired();
     error Meme__SlippageToleranceExceeded();
+    error Meme__StatusLimitExceeded();
+    error Meme__StatusRequired();
 
     /*----------  EVENTS ------------------------------------------------*/
 
@@ -72,6 +77,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     event Meme__Sell(address indexed sender, address to, uint256 amountIn, uint256 amountOut);
     event Meme__Fees(address indexed sender, uint256 amountBase, uint256 amountMeme);
     event Meme__Claim(address indexed sender, uint256 amountBase);
+    event Meme__StatusUpated(address indexed sender, string status);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -92,9 +98,11 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         ERC20Permit(_name)
     {
         factory = msg.sender;
-        uri = _uri;
         base = _base;
         fees = address(new MemeFees(_base));
+
+        uri = _uri;
+        status = "Post a status";
     }
 
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) 
@@ -154,7 +162,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         IERC20(base).transfer(to, amountOut);
     }
 
-    function claimFees(address account) external returns (uint256 claimedBase) {
+    function claimFees(address account) 
+        external 
+        returns (uint256 claimedBase) 
+    {
         _updateFor(account);
 
         claimedBase = claimableBase[account];
@@ -168,14 +179,21 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         }
     }
 
+    function updateStatus(string memory _status) 
+        external 
+    {
+        if (bytes(_status).length == 0) revert Meme__StatusRequired();
+        if (bytes(_status).length > STATUS_MAX_LENGTH) revert Meme__StatusLimitExceeded();
+        burnMeme(STATUS_UPDATE_FEE);
+        status = _status;
+        emit Meme__StatusUpated(msg.sender, _status);
+    }
+
     function burnMeme(uint256 amount) 
         public 
         notZeroInput(amount)
     {
         maxSupply -= amount;
-        // if (maxSupply > reserveMeme) {
-        //     reserveVirtBase = (reserveMeme * reserveBase) / (maxSupply - reserveMeme);
-        // }
         _burn(msg.sender, amount);
     }
 

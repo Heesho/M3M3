@@ -12,6 +12,7 @@ interface IMeme {
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) external;
     function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to) external;
     function claimFees(address account) external;
+    function updateStatus(string memory status) external;
 }
 
 interface IBase {
@@ -20,6 +21,9 @@ interface IBase {
 }
 
 contract MemeRouter is Ownable {
+
+    uint256 public constant STATUS_UPDATE_FEE = 10 * 1e18;
+
     address public immutable base;
     address public immutable factory;
 
@@ -30,6 +34,7 @@ contract MemeRouter is Ownable {
     event MemeRouter__AffiliateSet(address indexed account, address indexed affiliate);
     event MemeRouter__ClaimFees(address indexed meme, address indexed account);
     event MemeRouter__MemeCreated(address indexed meme, address indexed account);
+    event MemeRouter__StatusUpdated(address indexed meme, address indexed account, string status);
     
     constructor(address _base, address _factory) {
         base = _base;
@@ -53,7 +58,6 @@ contract MemeRouter is Ownable {
 
         uint256 memeBalance = IERC20(meme).balanceOf(address(this));
         IERC20(meme).transfer(msg.sender, memeBalance);
-        // IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
         uint256 baseBalance = IERC20(base).balanceOf(address(this));
         IBase(base).withdraw(baseBalance);
         (bool success, ) = msg.sender.call{value: baseBalance}("");
@@ -100,6 +104,12 @@ contract MemeRouter is Ownable {
         IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
         emit MemeRouter__MemeCreated(meme, msg.sender);
         return meme;
+    }
+
+    function updateStatus(address meme, string memory status) external {
+        IERC20(meme).transferFrom(msg.sender, address(this), STATUS_UPDATE_FEE);
+        IMeme(meme).updateStatus(status);
+        emit MemeRouter__StatusUpdated(meme, msg.sender, status);
     }
 
     // Function to receive Ether. msg.data must be empty
