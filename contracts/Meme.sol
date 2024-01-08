@@ -21,10 +21,9 @@ contract MemeFees {
         base = _base;
     }
 
-    function claimFeesFor(address recipient, uint amountBase, uint amountMeme) external {
+    function claimFeesFor(address recipient, uint amountBase) external {
         require(msg.sender == meme);
         if (amountBase > 0) IERC20(base).transfer(recipient, amountBase);
-        if (amountMeme > 0) IERC20(meme).transfer(recipient, amountMeme);
     }
 
 }
@@ -47,19 +46,19 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     address public immutable fees;
     address public immutable factory;
 
+    uint256 public maxSupply = INITIAL_SUPPLY;
+
     // bonding curve state
     uint256 public reserveBase = 0;
     uint256 public reserveMeme = INITIAL_SUPPLY;
 
     // fees state
     uint256 public totalFeesBase;
-    uint256 public totalFeesMeme;
     uint256 public indexBase;
-    uint256 public indexMeme;
     mapping(address => uint256) public supplyIndexBase;
-    mapping(address => uint256) public supplyIndexMeme;
     mapping(address => uint256) public claimableBase;
-    mapping(address => uint256) public claimableMeme;
+
+    string public uri;
 
     /*----------  ERRORS ------------------------------------------------*/
 
@@ -72,7 +71,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     event Meme__Buy(address indexed sender, address to, uint256 amountIn, uint256 amountOut);
     event Meme__Sell(address indexed sender, address to, uint256 amountIn, uint256 amountOut);
     event Meme__Fees(address indexed sender, uint256 amountBase, uint256 amountMeme);
-    event Meme__Claim(address indexed sender, uint256 amountBase, uint256 amountMeme);
+    event Meme__Claim(address indexed sender, uint256 amountBase);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -88,11 +87,12 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     /*----------  FUNCTIONS  --------------------------------------------*/
 
-    constructor(string memory _name, string memory _symbol, address _base)
+    constructor(string memory _name, string memory _symbol, string memory _uri, address _base)
         ERC20(_name, _symbol)
         ERC20Permit(_name)
     {
         factory = msg.sender;
+        uri = _uri;
         base = _base;
         fees = address(new MemeFees(_base));
     }
@@ -115,22 +115,23 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         emit Meme__Buy(msg.sender, to, amountIn, amountOut);
 
+        IERC20(base).transferFrom(msg.sender, address(this), amountIn);
         if (provider != address(0)) {
             uint256 providerFee = feeBase * PROVIDER_FEE / DIVISOR;
             IERC20(base).transfer(provider, providerFee);
             uint256 protocolFee = feeBase * PROTOCOL_FEE / DIVISOR;
             IERC20(base).transfer(IMemeFactory(factory).treasury(), protocolFee);
-            _updateBase(feeBase - providerFee - protocolFee); 
+            feeBase -= (providerFee + protocolFee);
         } else {
             uint256 protocolFee = feeBase * PROTOCOL_FEE / DIVISOR;
             IERC20(base).transfer(IMemeFactory(factory).treasury(), protocolFee);
-            _updateBase(feeBase - protocolFee);
+            feeBase -= protocolFee;
         }
-        IERC20(base).transferFrom(msg.sender, address(this), amountIn - feeBase);
         _mint(to, amountOut);
+        _updateBase(feeBase); 
     }
 
-    function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) 
+    function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to) 
         external 
         nonReentrant
         notZeroInput(amountIn)
@@ -148,34 +149,38 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         emit Meme__Sell(msg.sender, to, amountIn, amountOut);
 
-        if (provider != address(0)) {
-            uint256 providerFee = feeMeme * PROVIDER_FEE / DIVISOR;
-            transfer(provider, providerFee);
-            uint256 protocolFee = feeMeme * PROTOCOL_FEE / DIVISOR;
-            transfer(IMemeFactory(factory).treasury(), protocolFee);
-            _updateMeme(feeMeme - providerFee - protocolFee);
-        } else {
-            uint256 protocolFee = feeMeme * PROTOCOL_FEE / DIVISOR;
-            transfer(IMemeFactory(factory).treasury(), protocolFee);
-            _updateMeme(feeMeme - protocolFee);
-        }
         _burn(msg.sender, amountIn - feeMeme);
+        burnMeme(feeMeme);
         IERC20(base).transfer(to, amountOut);
     }
 
-    function claimFees(address account) external returns (uint256 claimedBase, uint256 claimedMeme) {
+    function claimFees(address account) external returns (uint256 claimedBase) {
         _updateFor(account);
 
         claimedBase = claimableBase[account];
-        claimedMeme = claimableMeme[account];
 
-        if (claimedBase > 0 || claimedMeme > 0) {
+        if (claimedBase > 0) {
             claimableBase[account] = 0;
-            claimableMeme[account] = 0;
 
-            MemeFees(fees).claimFeesFor(account, claimedBase, claimedMeme);
+            MemeFees(fees).claimFeesFor(account, claimedBase);
 
-            emit Meme__Claim(account, claimedBase, claimedMeme);
+            emit Meme__Claim(account, claimedBase);
+        }
+    }
+
+    function burnMeme(uint256 amount) 
+        public 
+        notZeroInput(amount)
+    {
+        if (maxSupply > reserveMeme) {
+            // uint256 newReserveMeme = RESERVE_VIRTUAL_BASE * (maxSupply - reserveMeme - amount) / reserveBase;
+            uint256 burnAmount = reserveMeme * amount / (maxSupply - reserveMeme);
+            maxSupply -= (amount + burnAmount);
+            reserveMeme -= burnAmount;
+            _burn(msg.sender, amount);
+        } else {
+            maxSupply -= amount;
+            _burn(msg.sender, amount);
         }
     }
 
@@ -190,39 +195,20 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         }
         emit Meme__Fees(msg.sender, amount, 0);
     }
-
-    function _updateMeme(uint256 amount) internal {
-        transfer(fees, amount);
-        totalFeesMeme += amount;
-        uint256 _ratio = amount * 1e18 / totalSupply();
-        if (_ratio > 0) {
-            indexMeme += _ratio;
-        }
-        emit Meme__Fees(msg.sender, 0, amount);
-    }
     
     function _updateFor(address recipient) internal {
         uint256 _supplied = balanceOf(recipient);
         if (_supplied > 0) {
             uint256 _supplyIndexBase = supplyIndexBase[recipient];
-            uint256 _supplyIndexMeme = supplyIndexMeme[recipient];
             uint256 _indexBase = indexBase; 
-            uint256 _indexMeme = indexMeme;
             supplyIndexBase[recipient] = _indexBase;
-            supplyIndexMeme[recipient] = _indexMeme;
             uint256 _deltaBase = _indexBase - _supplyIndexBase;
-            uint256 _deltaMeme = _indexMeme - _supplyIndexMeme;
             if (_deltaBase > 0) {
                 uint256 _share = _supplied * _deltaBase / 1e18;
                 claimableBase[recipient] += _share;
             }
-            if (_deltaMeme > 0) {
-                uint256 _share = _supplied * _deltaMeme / 1e18;
-                claimableMeme[recipient] += _share;
-            }
         } else {
             supplyIndexBase[recipient] = indexBase; 
-            supplyIndexMeme[recipient] = indexMeme;
         }
     }
 
@@ -260,8 +246,12 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     /*----------  VIEW FUNCTIONS  ---------------------------------------*/
 
-    function getPrice() external view returns (uint256) {
+    function getMarketPrice() external view returns (uint256) {
         return ((RESERVE_VIRTUAL_BASE + reserveBase) * PRECISION) / reserveMeme;
+    }
+
+    function getFloorPrice() external view returns (uint256) {
+        return (RESERVE_VIRTUAL_BASE * PRECISION) / maxSupply;
     }
 
 }

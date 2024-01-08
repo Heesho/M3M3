@@ -45,15 +45,15 @@ module.exports = {
     },
   },
   networks: {
-    mainnet: {
-      url: RPC_URL,
-      chainId: CHAIN_ID,
-      accounts: [PRIVATE_KEY],
-    },
+    // mainnet: {
+    // url: RPC_URL,
+    // chainId: CHAIN_ID,
+    // accounts: [PRIVATE_KEY],
+    // },
     hardhat: {},
   },
   etherscan: {
-    apiKey: SCAN_API_KEY,
+    // apiKey: SCAN_API_KEY,
   },
   paths: {
     sources: "./contracts",

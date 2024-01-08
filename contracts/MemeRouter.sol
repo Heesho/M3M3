@@ -2,14 +2,15 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMemeFactory {
-    function createMeme(string memory name, string memory symbol, uint256 amountIn) external returns (address);
+    function createMeme(string memory name, string memory symbol, string memory uri, uint256 amountIn) external returns (address);
 }
 
 interface IMeme {
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) external;
-    function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) external;
+    function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to) external;
     function claimFees(address account) external;
 }
 
@@ -18,7 +19,7 @@ interface IBase {
     function withdraw(uint) external;
 }
 
-contract MemeRouter {
+contract MemeRouter is Ownable {
     address public immutable base;
     address public immutable factory;
 
@@ -52,7 +53,11 @@ contract MemeRouter {
 
         uint256 memeBalance = IERC20(meme).balanceOf(address(this));
         IERC20(meme).transfer(msg.sender, memeBalance);
-        IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
+        // IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
+        uint256 baseBalance = IERC20(base).balanceOf(address(this));
+        IBase(base).withdraw(baseBalance);
+        (bool success, ) = msg.sender.call{value: baseBalance}("");
+        require(success, "Failed to send ETH");
 
         emit MemeRouter__Buy(meme, msg.sender, referrals[msg.sender], msg.value, memeBalance);
     }
@@ -63,8 +68,9 @@ contract MemeRouter {
         uint256 minAmountOut,
         uint256 expireTimestamp
     ) external {
+        IERC20(meme).transferFrom(msg.sender, address(this), amountIn);
         IERC20(meme).approve(meme, amountIn);
-        IMeme(meme).sell(amountIn, minAmountOut, expireTimestamp, address(this), referrals[msg.sender]);
+        IMeme(meme).sell(amountIn, minAmountOut, expireTimestamp, address(this));
 
         uint256 baseBalance = IERC20(base).balanceOf(address(this));
         IBase(base).withdraw(baseBalance);
@@ -84,11 +90,12 @@ contract MemeRouter {
 
     function createMeme(
         string memory name,
-        string memory symbol
+        string memory symbol,
+        string memory uri
     ) external payable returns (address) {
         IBase(base).deposit{value: msg.value}();
         IERC20(base).approve(factory, msg.value);
-        address meme = IMemeFactory(factory).createMeme(name, symbol, msg.value);
+        address meme = IMemeFactory(factory).createMeme(name, symbol, uri, msg.value);
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
         IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
         emit MemeRouter__MemeCreated(meme, msg.sender);

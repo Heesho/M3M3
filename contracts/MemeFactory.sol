@@ -49,6 +49,7 @@ contract MemeFactory is Ownable {
     function createMeme(
         string memory name,
         string memory symbol,
+        string memory uri,
         uint256 amountIn
     ) external returns (address) {
         if (amountIn < minAmountIn) revert MemeFactory__InsufficientAmountIn();
@@ -58,7 +59,7 @@ contract MemeFactory is Ownable {
         if (bytes(name).length > NAME_MAX_LENGTH) revert MemeFactory__NameLimitExceeded();
         if (bytes(symbol).length > SYMBOL_MAX_LENGTH) revert MemeFactory__SymbolLimitExceeded();
 
-        address meme = address(new Meme(name, symbol, base));
+        address meme = address(new Meme(name, symbol, uri, base));
         index_Meme[count] = meme;
         meme_Index[meme] = count;
         symbol_Index[symbol] = count;
