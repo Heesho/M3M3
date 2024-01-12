@@ -79,8 +79,23 @@ contract MemeMulticall {
         return IChainlinkOracle(ORACLE).latestAnswer() * 1e18 / 1e8;
     }
 
-    function getMemeData(uint256 index, address account) public view returns (MemeData memory memeData) {
+    function getMemeCount() external view returns (uint256) {
+        return IMemeFactory(memeFactory).getMemeCount();
+    }
 
+    function getIndexByMeme(address meme) external view returns (uint256) {
+        return IMemeFactory(memeFactory).getIndexByMeme(meme);
+    }
+
+    function getMemeByIndex(uint256 index) external view returns (address) {
+        return IMemeFactory(memeFactory).getMemeByIndex(index);
+    }
+
+    function getIndexBySymbol(string memory symbol) external view returns (uint256) {
+        return IMemeFactory(memeFactory).getIndexBySymbol(symbol);
+    }
+
+    function getMemeData(uint256 index, address account) public view returns (MemeData memory memeData) {
         memeData.meme = IMemeFactory(memeFactory).getMemeByIndex(index);
         memeData.name = IERC20Metadata(memeData.meme).name();
         memeData.symbol = IERC20Metadata(memeData.meme).symbol();
@@ -105,6 +120,20 @@ contract MemeMulticall {
 
     }
 
+    function getMemeDataArray(uint256[] memory indexes, address account) external view returns (MemeData[] memory memeDatas) {
+        memeDatas = new MemeData[](indexes.length);
+        for (uint256 i = 0; i < indexes.length; i++) {
+            memeDatas[i] = getMemeData(indexes[i], account);
+        }
+    }
+
+    function getMemeDataIndexes(uint256 start, uint256 end, address account) external view returns (MemeData[] memory memeDatas) {
+        memeDatas = new MemeData[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            memeDatas[i - start] = getMemeData(i, account);
+        }
+    }
+    
     function quoteBuyIn(address meme, uint256 input, uint256 slippageTolerance) external view returns(uint256 output, uint256 slippage, uint256 minOutput, uint256 autoMinOutput) {
         uint256 fee = input * FEE / DIVISOR;
         uint256 newReserveBase = IMeme(meme).reserveBase() + IMeme(meme).RESERVE_VIRTUAL_BASE() + input - fee;

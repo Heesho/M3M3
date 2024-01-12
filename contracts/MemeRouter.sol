@@ -12,7 +12,7 @@ interface IMeme {
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) external;
     function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to) external;
     function claimFees(address account) external;
-    function updateStatus(string memory status) external;
+    function updateStatus(address account, string memory status) external;
 }
 
 interface IBase {
@@ -29,8 +29,8 @@ contract MemeRouter is Ownable {
 
     mapping(address => address) public referrals; // account => affiliate
 
-    event MemeRouter__Buy(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut);
-    event MemeRouter__Sell(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut);
+    event MemeRouter__Buy(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut, uint256 timestamp);
+    event MemeRouter__Sell(address indexed meme, address indexed account, uint256 amountIn, uint256 amountOut, uint256 timestamp);
     event MemeRouter__AffiliateSet(address indexed account, address indexed affiliate);
     event MemeRouter__ClaimFees(address indexed meme, address indexed account);
     event MemeRouter__MemeCreated(address indexed meme, address indexed account);
@@ -63,7 +63,7 @@ contract MemeRouter is Ownable {
         (bool success, ) = msg.sender.call{value: baseBalance}("");
         require(success, "Failed to send ETH");
 
-        emit MemeRouter__Buy(meme, msg.sender, referrals[msg.sender], msg.value, memeBalance);
+        emit MemeRouter__Buy(meme, msg.sender, referrals[msg.sender], msg.value, memeBalance, block.timestamp);
     }
 
     function sell(
@@ -82,7 +82,7 @@ contract MemeRouter is Ownable {
         require(success, "Failed to send ETH");
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
 
-        emit MemeRouter__Sell(meme, msg.sender, referrals[msg.sender], baseBalance, amountIn);
+        emit MemeRouter__Sell(meme, msg.sender, baseBalance, amountIn, block.timestamp);
     }
 
     function claimFees(address[] calldata memes) external {
@@ -108,7 +108,7 @@ contract MemeRouter is Ownable {
 
     function updateStatus(address meme, string memory status) external {
         IERC20(meme).transferFrom(msg.sender, address(this), STATUS_UPDATE_FEE);
-        IMeme(meme).updateStatus(status);
+        IMeme(meme).updateStatus(msg.sender, status);
         emit MemeRouter__StatusUpdated(meme, msg.sender, status);
     }
 

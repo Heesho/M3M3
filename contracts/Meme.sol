@@ -60,6 +60,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     mapping(address => uint256) public supplyIndexBase;
     mapping(address => uint256) public claimableBase;
 
+    address public statusHolder;
     string public uri;
     string public status;
 
@@ -102,7 +103,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         fees = address(new MemeFees(_base));
 
         uri = _uri;
-        status = "Post a status";
+        status = "Bm, would you like to say henlo?";
     }
 
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) 
@@ -158,6 +159,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         emit Meme__Sell(msg.sender, to, amountIn, amountOut);
 
         _burn(msg.sender, amountIn - feeMeme);
+        // if (statusHolder != address(0)) {
+        //     transfer(statusHolder, feeMeme / 2);
+        //     feeMeme -= feeMeme / 2;
+        // }
         burnMeme(feeMeme);
         IERC20(base).transfer(to, amountOut);
     }
@@ -179,14 +184,15 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         }
     }
 
-    function updateStatus(string memory _status) 
+    function updateStatus(address account, string memory _status) 
         external 
     {
         if (bytes(_status).length == 0) revert Meme__StatusRequired();
         if (bytes(_status).length > STATUS_MAX_LENGTH) revert Meme__StatusLimitExceeded();
         burnMeme(STATUS_UPDATE_FEE);
         status = _status;
-        emit Meme__StatusUpated(msg.sender, _status);
+        statusHolder = account;
+        emit Meme__StatusUpated(account, _status);
     }
 
     function burnMeme(uint256 amount) 

@@ -73,6 +73,15 @@ describe("local: test0", function () {
     console.log("Meme0 Created");
   });
 
+  it("User0 creates meme1", async function () {
+    console.log("******************************************************");
+    await router
+      .connect(user0)
+      .createMeme("Meme 1", "MEME1", "http/ipfs.com", { value: one });
+    meme1 = await ethers.getContractAt("Meme", await memeFactory.index_Meme(2));
+    console.log("Meme0 Created");
+  });
+
   // it("User0 creates meme0", async function () {
   //   console.log("******************************************************");
   //   await router
@@ -287,13 +296,32 @@ describe("local: test0", function () {
 
   it("User0 updates status through meme contract", async function () {
     console.log("******************************************************");
-    await meme0.connect(user0).updateStatus("What in the world is going on?");
+    await meme0
+      .connect(user0)
+      .updateStatus(user0.address, "What in the world is going on?");
   });
 
   it("User0 updates status through router", async function () {
     console.log("******************************************************");
     await meme0.connect(user0).approve(router.address, ten);
     await router.connect(user0).updateStatus(meme0.address, "Sup everybody?");
+  });
+
+  it("User1 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user1).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: ten,
+    });
+  });
+
+  it("User1 sells meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user1)
+      .approve(router.address, await meme0.balanceOf(user1.address));
+    await router
+      .connect(user1)
+      .sell(meme0.address, await meme0.balanceOf(user1.address), 0, 1904422437);
   });
 
   it("Meme0, user0", async function () {
@@ -387,5 +415,21 @@ describe("local: test0", function () {
     console.log("MEME in", divDec(res.output));
     console.log("slippage", divDec(res.slippage));
     console.log("min BASE out", divDec(res.minOutput));
+  });
+
+  it("Meme Data by array", async function () {
+    console.log("******************************************************");
+    let res = await multicall.getMemeDataArray([1, 2], user0.address);
+    console.log(res);
+  });
+
+  it("Meme Data by indexes", async function () {
+    console.log("******************************************************");
+    let res = await multicall.getMemeDataIndexes(
+      1,
+      (await multicall.getMemeCount()).add(1),
+      user0.address
+    );
+    console.log(res);
   });
 });
