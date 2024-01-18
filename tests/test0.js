@@ -73,6 +73,15 @@ describe("local: test0", function () {
     console.log("Meme0 Created");
   });
 
+  it("User0 creates meme1", async function () {
+    console.log("******************************************************");
+    await router
+      .connect(user0)
+      .createMeme("Meme 1", "MEME1", "http/ipfs.com", { value: ten });
+    meme1 = await ethers.getContractAt("Meme", await memeFactory.index_Meme(2));
+    console.log("Meme1 Created");
+  });
+
   it("User0 contributes 10 ETH to meme0", async function () {
     console.log("******************************************************");
     await router.connect(user0).contribute(meme0.address, { value: ten });
@@ -87,7 +96,7 @@ describe("local: test0", function () {
     console.log("******************************************************");
     await expect(
       router.connect(user0).openMarket(meme0.address)
-    ).to.be.revertedWith("PreMeme__OnGoing");
+    ).to.be.revertedWith("PreMeme__InProgress");
   });
 
   it("Forward 1 hour", async function () {
@@ -101,6 +110,13 @@ describe("local: test0", function () {
     await router.connect(user0).openMarket(meme0.address);
   });
 
+  it("User0 tries to open the market", async function () {
+    console.log("******************************************************");
+    await expect(
+      router.connect(user0).openMarket(meme0.address)
+    ).to.be.revertedWith("PreMeme__Concluded");
+  });
+
   it("User1 redeems meme0 contribution", async function () {
     console.log("******************************************************");
     await router.connect(user1).redeem(meme0.address);
@@ -111,135 +127,166 @@ describe("local: test0", function () {
     await router.connect(user0).redeem(meme0.address);
   });
 
-  // it("User0 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
-  //     value: ten,
-  //   });
-  // });
+  it("User0 redeems meme0 contribution", async function () {
+    console.log("******************************************************");
+    await expect(
+      router.connect(user0).redeem(meme0.address)
+    ).to.be.revertedWith("PreMeme__NotEligible");
+  });
 
-  // it("User0 sells meme0", async function () {
-  //   console.log("******************************************************");
-  //   await meme0
-  //     .connect(user0)
-  //     .approve(
-  //       router.address,
-  //       (await meme0.balanceOf(user0.address)).sub(oneThousand)
-  //     );
-  //   await router
-  //     .connect(user0)
-  //     .sell(
-  //       meme0.address,
-  //       (await meme0.balanceOf(user0.address)).sub(oneThousand),
-  //       0,
-  //       1904422437
-  //     );
-  // });
+  it("User0 tries to contribute 10 ETH to meme0", async function () {
+    console.log("******************************************************");
+    await expect(
+      router.connect(user0).contribute(meme0.address, { value: ten })
+    ).to.be.revertedWith("PreMeme__Concluded");
+  });
 
-  // it("User0 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
-  //     value: ten,
-  //   });
-  // });
+  it("User0 tries to contribute 10 ETH to meme1", async function () {
+    console.log("******************************************************");
+    await router.connect(user0).contribute(meme1.address, { value: ten });
+  });
 
-  // it("User0 sells meme0", async function () {
-  //   console.log("******************************************************");
-  //   await meme0
-  //     .connect(user0)
-  //     .approve(router.address, await meme0.balanceOf(user0.address));
-  //   await router
-  //     .connect(user0)
-  //     .sell(meme0.address, await meme0.balanceOf(user0.address), 0, 1904422437);
-  // });
+  it("User0 opens the market", async function () {
+    console.log("******************************************************");
+    await router.connect(user0).openMarket(meme1.address);
+  });
 
-  // it("User0 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
-  //     value: oneThousand,
-  //   });
-  // });
+  it("User1 redeems meme1 contribution", async function () {
+    console.log("******************************************************");
+    await expect(
+      router.connect(user1).redeem(meme1.address)
+    ).to.be.revertedWith("PreMeme__NotEligible");
+  });
 
-  // it("User1 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router
-  //     .connect(user1)
-  //     .buy(meme0.address, user0.address, 0, 1904422437, {
-  //       value: oneThousand,
-  //     });
-  // });
+  it("User0 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: ten,
+    });
+  });
 
-  // it("User0 claims meme0 fees", async function () {
-  //   console.log("******************************************************");
-  //   await meme0;
-  //   await router.connect(user0).claimFees([meme0.address]);
-  // });
+  it("User0 sells meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user0)
+      .approve(
+        router.address,
+        (await meme0.balanceOf(user0.address)).sub(oneThousand)
+      );
+    await router
+      .connect(user0)
+      .sell(
+        meme0.address,
+        (await meme0.balanceOf(user0.address)).sub(oneThousand),
+        0,
+        1904422437
+      );
+  });
 
-  // it("User0 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
-  //     value: ten,
-  //   });
-  // });
+  it("User0 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: ten,
+    });
+  });
 
-  // it("User1 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router.connect(user1).buy(meme0.address, AddressZero, 0, 1904422437, {
-  //     value: ten,
-  //   });
-  // });
+  it("User0 sells meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user0)
+      .approve(router.address, await meme0.balanceOf(user0.address));
+    await router
+      .connect(user0)
+      .sell(meme0.address, await meme0.balanceOf(user0.address), 0, 1904422437);
+  });
 
-  // it("User1 sells meme0", async function () {
-  //   console.log("******************************************************");
-  //   await meme0
-  //     .connect(user1)
-  //     .approve(router.address, await meme0.balanceOf(user1.address));
-  //   await router
-  //     .connect(user1)
-  //     .sell(meme0.address, await meme0.balanceOf(user1.address), 0, 1904422437);
-  // });
+  it("User0 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: oneThousand,
+    });
+  });
 
-  // it("User0 claims meme0 fees", async function () {
-  //   console.log("******************************************************");
-  //   await meme0;
-  //   await router.connect(user0).claimFees([meme0.address]);
-  // });
+  it("User1 buys meme0", async function () {
+    console.log("******************************************************");
+    await router
+      .connect(user1)
+      .buy(meme0.address, user0.address, 0, 1904422437, {
+        value: oneThousand,
+      });
+  });
 
-  // it("User1 claims meme0 fees", async function () {
-  //   console.log("******************************************************");
-  //   await meme0;
-  //   await router.connect(user1).claimFees([meme0.address]);
-  // });
+  it("User0 claims meme0 fees", async function () {
+    console.log("******************************************************");
+    await meme0;
+    await router.connect(user0).claimFees([meme0.address]);
+  });
 
-  // it("User0 updates status through meme contract", async function () {
-  //   console.log("******************************************************");
-  //   await meme0
-  //     .connect(user0)
-  //     .updateStatus(user0.address, "What in the world is going on?");
-  // });
+  it("User0 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user0).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: ten,
+    });
+  });
 
-  // it("User0 updates status through router", async function () {
-  //   console.log("******************************************************");
-  //   await meme0.connect(user0).approve(router.address, ten);
-  //   await router.connect(user0).updateStatus(meme0.address, "Sup everybody?");
-  // });
+  it("User1 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user1).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: ten,
+    });
+  });
 
-  // it("User1 buys meme0", async function () {
-  //   console.log("******************************************************");
-  //   await router.connect(user1).buy(meme0.address, AddressZero, 0, 1904422437, {
-  //     value: ten,
-  //   });
-  // });
+  it("User1 sells meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user1)
+      .approve(router.address, await meme0.balanceOf(user1.address));
+    await router
+      .connect(user1)
+      .sell(meme0.address, await meme0.balanceOf(user1.address), 0, 1904422437);
+  });
 
-  // it("User1 sells meme0", async function () {
-  //   console.log("******************************************************");
-  //   await meme0
-  //     .connect(user1)
-  //     .approve(router.address, await meme0.balanceOf(user1.address));
-  //   await router
-  //     .connect(user1)
-  //     .sell(meme0.address, await meme0.balanceOf(user1.address), 0, 1904422437);
-  // });
+  it("User0 claims meme0 fees", async function () {
+    console.log("******************************************************");
+    await meme0;
+    await router.connect(user0).claimFees([meme0.address]);
+  });
+
+  it("User1 claims meme0 fees", async function () {
+    console.log("******************************************************");
+    await meme0;
+    await router.connect(user1).claimFees([meme0.address]);
+  });
+
+  it("User0 updates status through meme contract", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user0)
+      .updateStatus(user0.address, "What in the world is going on?");
+  });
+
+  it("User0 updates status through router", async function () {
+    console.log("******************************************************");
+    await meme0.connect(user0).approve(router.address, ten);
+    await router.connect(user0).updateStatus(meme0.address, "Sup everybody?");
+  });
+
+  it("User1 buys meme0", async function () {
+    console.log("******************************************************");
+    await router.connect(user1).buy(meme0.address, AddressZero, 0, 1904422437, {
+      value: ten,
+    });
+  });
+
+  it("User1 sells meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user1)
+      .approve(router.address, await meme0.balanceOf(user1.address));
+    await router
+      .connect(user1)
+      .sell(meme0.address, await meme0.balanceOf(user1.address), 0, 1904422437);
+  });
 
   it("Meme0, user0", async function () {
     console.log("******************************************************");
@@ -319,73 +366,73 @@ describe("local: test0", function () {
     console.log("Account Claimable BASE: ", divDec(res[16]));
   });
 
-  // it("Quote Buy In", async function () {
-  //   console.log("******************************************************");
-  //   let res = await multicall
-  //     .connect(owner)
-  //     .quoteBuyIn(meme0.address, ten, 9800);
-  //   console.log("BASE in", divDec(ten));
-  //   console.log("Slippage Tolerance", "2%");
-  //   console.log();
-  //   console.log("MEME out", divDec(res.output));
-  //   console.log("slippage", divDec(res.slippage));
-  //   console.log("min MEME out", divDec(res.minOutput));
-  // });
+  it("Quote Buy In", async function () {
+    console.log("******************************************************");
+    let res = await multicall
+      .connect(owner)
+      .quoteBuyIn(meme0.address, ten, 9800);
+    console.log("BASE in", divDec(ten));
+    console.log("Slippage Tolerance", "2%");
+    console.log();
+    console.log("MEME out", divDec(res.output));
+    console.log("slippage", divDec(res.slippage));
+    console.log("min MEME out", divDec(res.minOutput));
+  });
 
-  // it("Quote Sell In", async function () {
-  //   console.log("******************************************************");
-  //   let res = await multicall.quoteSellIn(
-  //     meme0.address,
-  //     await meme0.balanceOf(user0.address),
-  //     9700
-  //   );
-  //   console.log("MEME in", divDec(await meme0.balanceOf(user0.address)));
-  //   console.log("Slippage Tolerance", "3%");
-  //   console.log();
-  //   console.log("BASE out", divDec(res.output));
-  //   console.log("slippage", divDec(res.slippage));
-  //   console.log("min BASE out", divDec(res.minOutput));
-  // });
+  it("Quote Sell In", async function () {
+    console.log("******************************************************");
+    let res = await multicall.quoteSellIn(
+      meme0.address,
+      await meme0.balanceOf(user0.address),
+      9700
+    );
+    console.log("MEME in", divDec(await meme0.balanceOf(user0.address)));
+    console.log("Slippage Tolerance", "3%");
+    console.log();
+    console.log("BASE out", divDec(res.output));
+    console.log("slippage", divDec(res.slippage));
+    console.log("min BASE out", divDec(res.minOutput));
+  });
 
-  // it("Quote buy out", async function () {
-  //   console.log("******************************************************");
-  //   let res = await multicall
-  //     .connect(owner)
-  //     .quoteBuyOut(meme0.address, ten, 9700);
-  //   console.log("MEME out", divDec(ten));
-  //   console.log("Slippage Tolerance", "3%");
-  //   console.log();
-  //   console.log("BASE in", divDec(res.output));
-  //   console.log("slippage", divDec(res.slippage));
-  //   console.log("min MEME out", divDec(res.minOutput));
-  // });
+  it("Quote buy out", async function () {
+    console.log("******************************************************");
+    let res = await multicall
+      .connect(owner)
+      .quoteBuyOut(meme0.address, ten, 9700);
+    console.log("MEME out", divDec(ten));
+    console.log("Slippage Tolerance", "3%");
+    console.log();
+    console.log("BASE in", divDec(res.output));
+    console.log("slippage", divDec(res.slippage));
+    console.log("min MEME out", divDec(res.minOutput));
+  });
 
-  // it("Quote sell out", async function () {
-  //   console.log("******************************************************");
-  //   let res = await multicall
-  //     .connect(owner)
-  //     .quoteSellOut(meme0.address, five, 9950);
-  //   console.log("BASE out", divDec(five));
-  //   console.log("Slippage Tolerance", "0.5%");
-  //   console.log();
-  //   console.log("MEME in", divDec(res.output));
-  //   console.log("slippage", divDec(res.slippage));
-  //   console.log("min BASE out", divDec(res.minOutput));
-  // });
+  it("Quote sell out", async function () {
+    console.log("******************************************************");
+    let res = await multicall
+      .connect(owner)
+      .quoteSellOut(meme0.address, five, 9950);
+    console.log("BASE out", divDec(five));
+    console.log("Slippage Tolerance", "0.5%");
+    console.log();
+    console.log("MEME in", divDec(res.output));
+    console.log("slippage", divDec(res.slippage));
+    console.log("min BASE out", divDec(res.minOutput));
+  });
 
-  // it("Meme Data by array", async function () {
-  //   console.log("******************************************************");
-  //   let res = await multicall.getMemeDataArray([1, 2], user0.address);
-  //   console.log(res);
-  // });
+  it("Meme Data by array", async function () {
+    console.log("******************************************************");
+    let res = await multicall.getMemeDataArray([1, 2], user0.address);
+    console.log(res);
+  });
 
-  // it("Meme Data by indexes", async function () {
-  //   console.log("******************************************************");
-  //   let res = await multicall.getMemeDataIndexes(
-  //     1,
-  //     (await multicall.getMemeCount()).add(1),
-  //     user0.address
-  //   );
-  //   console.log(res);
-  // });
+  it("Meme Data by indexes", async function () {
+    console.log("******************************************************");
+    let res = await multicall.getMemeDataIndexes(
+      1,
+      (await multicall.getMemeCount()).add(1),
+      user0.address
+    );
+    console.log(res);
+  });
 });

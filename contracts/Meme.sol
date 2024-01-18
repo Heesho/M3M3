@@ -11,55 +11,62 @@ interface IMemeFactory {
     function treasury() external view returns (address);
 }
 
-contract PreMeme {
+contract PreMeme is ReentrancyGuard {
     uint256 public constant DURATION = 3600;
     
     address internal immutable base;
     address internal immutable meme;
 
-    uint256 public immutable end;
+    uint256 public immutable endTimestamp;
     bool public ended = false;
 
-    uint256 public memeBalance;
-    uint256 public totalBalance;
-    mapping(address => uint256) public account_Balance;
+    uint256 public totalMemeBalance;
+    uint256 public totalBaseContributed;
+    mapping(address => uint256) public account_BaseContributed;
 
     error PreMeme__ZeroInput();
-    error PreMeme__Ended();
-    error PreMeme__OnGoing();
+    error PreMeme__Concluded();
+    error PreMeme__InProgress();
     error PreMeme__NotEligible();
+
+    event PreMeme__Contributed(address indexed account, uint256 amount);
+    event PreMeme__MarketOpened(address indexed meme, uint256 totalMemeBalance, uint256 totalBaseContributed);
+    event PreMeme__Redeemed(address indexed account, uint256 amount);
 
     constructor(address _base) {
         base = _base;
         meme = msg.sender;
-        end = block.timestamp + DURATION;
+        endTimestamp = block.timestamp + DURATION;
     }
 
-    function contribute(address account, uint256 amount) external {
+    function contribute(address account, uint256 amount) external nonReentrant {
         if (amount == 0) revert PreMeme__ZeroInput();
-        if (ended) revert PreMeme__Ended();
-        totalBalance += amount;
-        account_Balance[account] += amount;
+        if (ended) revert PreMeme__Concluded();
+        totalBaseContributed += amount;
+        account_BaseContributed[account] += amount;
         IERC20(base).transferFrom(msg.sender, address(this), amount);
+        emit PreMeme__Contributed(account, amount);
     }
 
     function openMarket() external {
-        if (end > block.timestamp) revert PreMeme__OnGoing();
-        if (ended) revert PreMeme__Ended();
+        if (endTimestamp > block.timestamp) revert PreMeme__InProgress();
+        if (ended) revert PreMeme__Concluded();
         ended = true;
-        IERC20(base).approve(meme, totalBalance);
-        Meme(meme).buy(totalBalance, 0, 0, msg.sender, address(0));
-        memeBalance = IERC20(meme).balanceOf(address(this));
+        IERC20(base).approve(meme, totalBaseContributed);
+        Meme(meme).buy(totalBaseContributed, 0, 0, address(this), address(0));
+        totalMemeBalance = IERC20(meme).balanceOf(address(this));
         Meme(meme).openMarket();
+        emit PreMeme__MarketOpened(meme, totalMemeBalance, totalBaseContributed);
     }
 
-    function redeem(address account) external {
-        if (!ended) revert PreMeme__OnGoing();
-        uint256 _balance = account_Balance[account];
-        if (_balance == 0) revert PreMeme__NotEligible();
-        account_Balance[account] = 0;
-        uint256 _memeBalance = memeBalance * _balance / totalBalance;
-        IERC20(meme).transfer(account, _memeBalance);
+    function redeem(address account) external nonReentrant {
+        if (!ended) revert PreMeme__InProgress();
+        uint256 contribution = account_BaseContributed[account];
+        if (contribution == 0) revert PreMeme__NotEligible();
+        account_BaseContributed[account] = 0;
+        uint256 memeAmount = totalMemeBalance * contribution / totalBaseContributed;
+        IERC20(meme).transfer(account, memeAmount);
+        emit PreMeme__Redeemed(account, memeAmount);
     }
     
 }

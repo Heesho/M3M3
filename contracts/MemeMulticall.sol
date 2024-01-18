@@ -10,7 +10,16 @@ interface IMemeFactory {
     function getIndexBySymbol(string memory symbol) external view returns (uint256);
 }
 
+interface IPreMeme {
+    function totalBaseContributed() external view returns (uint256);
+    function totalMemeBalance() external view returns (uint256);
+    function ended() external view returns (bool);
+    function endTimestamp() external view returns (uint256);
+    function account_BaseContributed(address account) external view returns (uint256);
+}
+
 interface IMeme {
+    function preMeme() external view returns (address);
     function uri() external view returns (string memory);
     function status() external view returns (string memory);
     function reserveBase() external view returns (uint256);
@@ -48,6 +57,10 @@ contract MemeMulticall {
 
         string uri;
         string status;
+
+        bool marketOpen;
+        uint256 marketOpenTimestamp;
+        uint256 baseContributed;
         
         uint256 reserveVirtualBase;
         uint256 reserveRealBase;
@@ -59,6 +72,8 @@ contract MemeMulticall {
         uint256 tvl;
         uint256 totalFeesBase;
 
+        uint256 accountContributed;
+        uint256 accountRedeemable;
         uint256 accountNative;
         uint256 accountBase;
         uint256 accountBalance;
@@ -103,6 +118,11 @@ contract MemeMulticall {
         memeData.uri = IMeme(memeData.meme).uri();
         memeData.status = IMeme(memeData.meme).status();
 
+        address preMeme = IMeme(memeData.meme).preMeme();
+        memeData.marketOpen = !IPreMeme(preMeme).ended();
+        memeData.marketOpenTimestamp = IPreMeme(preMeme).endTimestamp();
+        memeData.baseContributed = IPreMeme(preMeme).totalBaseContributed();
+
         memeData.reserveVirtualBase = IMeme(memeData.meme).RESERVE_VIRTUAL_BASE();
         memeData.reserveRealBase = IMeme(memeData.meme).reserveBase();
         memeData.reserveRealMeme = IMeme(memeData.meme).reserveMeme();
@@ -113,6 +133,8 @@ contract MemeMulticall {
         memeData.tvl = (memeData.reserveRealBase + memeData.reserveVirtualBase) * 2 * getBasePrice() / 1e18;
         memeData.totalFeesBase = IMeme(memeData.meme).totalFeesBase();
 
+        memeData.accountContributed = IPreMeme(preMeme).account_BaseContributed(account);
+        memeData.accountRedeemable = (memeData.marketOpen ? IPreMeme(preMeme).totalMemeBalance() * memeData.accountContributed / memeData.baseContributed : 0);
         memeData.accountNative = account.balance;
         memeData.accountBase = IERC20(base).balanceOf(account);
         memeData.accountBalance = IERC20(memeData.meme).balanceOf(account);

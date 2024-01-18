@@ -17,6 +17,8 @@ interface IMeme {
 }
 
 interface IPreMeme {
+    function totalBaseContributed() external view returns (uint256);
+    function totalMemeBalance() external view returns (uint256);
     function contribute(address account, uint256 amount) external;
     function redeem(address account) external;
     function openMarket() external;
@@ -42,6 +44,9 @@ contract MemeRouter is Ownable {
     event MemeRouter__ClaimFees(address indexed meme, address indexed account);
     event MemeRouter__MemeCreated(address indexed meme, address indexed account);
     event MemeRouter__StatusUpdated(address indexed meme, address indexed account, string status);
+    event MemeRouter__Contributed(address indexed meme, address indexed account, uint256 amount);
+    event MemeRouter__Redeemed(address indexed meme, address indexed account, uint256 amount);
+    event MemeRouter__MarketOpened(address indexed meme, uint256 totalBaseContributed, uint256 totalMemeBalance);
     
     constructor(address _factory, address _base) {
         factory = _factory;
@@ -124,20 +129,21 @@ contract MemeRouter is Ownable {
         IBase(base).deposit{value: msg.value}();
         IERC20(base).approve(preMeme, msg.value);
         IPreMeme(preMeme).contribute(msg.sender, msg.value);
-        // emit event
+        emit MemeRouter__Contributed(meme, msg.sender, msg.value);
     }
 
     function redeem(address meme) external {
         address preMeme = IMeme(meme).preMeme();
         IPreMeme(preMeme).redeem(msg.sender);
-        IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
-        // emit event
+        uint256 memeBalance = IERC20(meme).balanceOf(address(this));
+        IERC20(meme).transfer(msg.sender, memeBalance);
+        emit MemeRouter__Redeemed(meme, msg.sender, memeBalance);
     }
 
     function openMarket(address meme) external {
         address preMeme = IMeme(meme).preMeme();
         IPreMeme(preMeme).openMarket();
-        // emit event
+        emit MemeRouter__MarketOpened(meme, IPreMeme(preMeme).totalBaseContributed(), IPreMeme(preMeme).totalMemeBalance());
     }
 
     // Function to receive Ether. msg.data must be empty
