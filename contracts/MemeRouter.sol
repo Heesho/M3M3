@@ -5,14 +5,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IMemeFactory {
-    function createMeme(string memory name, string memory symbol, string memory uri, uint256 amountIn) external returns (address);
+    function createMeme(string memory name, string memory symbol, string memory uri, address account, uint256 amountIn) external returns (address);
 }
 
 interface IMeme {
+    function preMeme() external view returns (address);
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) external;
     function sell(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to) external;
     function claimFees(address account) external;
     function updateStatus(address account, string memory status) external;
+}
+
+interface IPreMeme {
+    function contribute(address account, uint256 amount) external;
+    function redeem(address account) external;
+    function openMarket() external;
 }
 
 interface IBase {
@@ -99,7 +106,7 @@ contract MemeRouter is Ownable {
     ) external payable returns (address) {
         IBase(base).deposit{value: msg.value}();
         IERC20(base).approve(factory, msg.value);
-        address meme = IMemeFactory(factory).createMeme(name, symbol, uri, msg.value);
+        address meme = IMemeFactory(factory).createMeme(name, symbol, uri, msg.sender, msg.value);
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
         IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
         emit MemeRouter__MemeCreated(meme, msg.sender);
@@ -110,6 +117,27 @@ contract MemeRouter is Ownable {
         IERC20(meme).transferFrom(msg.sender, address(this), STATUS_UPDATE_FEE);
         IMeme(meme).updateStatus(msg.sender, status);
         emit MemeRouter__StatusUpdated(meme, msg.sender, status);
+    }
+
+    function contribute(address meme) external payable {
+        address preMeme = IMeme(meme).preMeme();
+        IBase(base).deposit{value: msg.value}();
+        IERC20(base).approve(preMeme, msg.value);
+        IPreMeme(preMeme).contribute(msg.sender, msg.value);
+        // emit event
+    }
+
+    function redeem(address meme) external {
+        address preMeme = IMeme(meme).preMeme();
+        IPreMeme(preMeme).redeem(msg.sender);
+        IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
+        // emit event
+    }
+
+    function openMarket(address meme) external {
+        address preMeme = IMeme(meme).preMeme();
+        IPreMeme(preMeme).openMarket();
+        // emit event
     }
 
     // Function to receive Ether. msg.data must be empty

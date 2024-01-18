@@ -44,7 +44,7 @@ contract PreMeme {
     }
 
     function openMarket() external {
-        if (end < block.timestamp) revert PreMeme__OnGoing();
+        if (end > block.timestamp) revert PreMeme__OnGoing();
         if (ended) revert PreMeme__Ended();
         ended = true;
         IERC20(base).approve(meme, totalBalance);
@@ -53,7 +53,7 @@ contract PreMeme {
         Meme(meme).openMarket();
     }
 
-    function claim(address account) external {
+    function redeem(address account) external {
         if (!ended) revert PreMeme__OnGoing();
         uint256 _balance = account_Balance[account];
         if (_balance == 0) revert PreMeme__NotEligible();

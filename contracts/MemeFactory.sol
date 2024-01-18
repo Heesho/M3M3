@@ -50,6 +50,7 @@ contract MemeFactory is Ownable {
         string memory name,
         string memory symbol,
         string memory uri,
+        address account,
         uint256 amountIn
     ) external returns (address) {
         if (amountIn < minAmountIn) revert MemeFactory__InsufficientAmountIn();
@@ -60,6 +61,7 @@ contract MemeFactory is Ownable {
         if (bytes(symbol).length > SYMBOL_MAX_LENGTH) revert MemeFactory__SymbolLimitExceeded();
 
         address meme = address(new Meme(name, symbol, uri, base));
+        address preMeme = Meme(meme).preMeme();
         index_Meme[count] = meme;
         meme_Index[meme] = count;
         symbol_Index[symbol] = count;
@@ -68,8 +70,8 @@ contract MemeFactory is Ownable {
         count++;
 
         IERC20(base).transferFrom(msg.sender, address(this), amountIn);
-        IERC20(base).approve(meme, amountIn);
-        Meme(meme).buy(amountIn, 0, 0, msg.sender, address(0));
+        IERC20(base).approve(preMeme, amountIn);
+        PreMeme(preMeme).contribute(account, amountIn);
 
         return meme;
     }
