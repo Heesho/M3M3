@@ -11,6 +11,59 @@ interface IMemeFactory {
     function treasury() external view returns (address);
 }
 
+contract PreMeme {
+    uint256 public constant DURATION = 3600;
+    
+    address internal immutable base;
+    address internal immutable meme;
+
+    uint256 public immutable end;
+    bool public ended = false;
+
+    uint256 public memeBalance;
+    uint256 public totalBalance;
+    mapping(address => uint256) public account_Balance;
+
+    error PreMeme__ZeroInput();
+    error PreMeme__Ended();
+    error PreMeme__OnGoing();
+    error PreMeme__NotEligible();
+
+    constructor(address _base) {
+        base = _base;
+        meme = msg.sender;
+        end = block.timestamp + DURATION;
+    }
+
+    function contribute(address account, uint256 amount) external {
+        if (amount == 0) revert PreMeme__ZeroInput();
+        if (ended) revert PreMeme__Ended();
+        totalBalance += amount;
+        account_Balance[account] += amount;
+        IERC20(base).transferFrom(msg.sender, address(this), amount);
+    }
+
+    function openMarket() external {
+        if (end < block.timestamp) revert PreMeme__OnGoing();
+        if (ended) revert PreMeme__Ended();
+        ended = true;
+        IERC20(base).approve(meme, totalBalance);
+        Meme(meme).buy(totalBalance, 0, 0, msg.sender, address(0));
+        memeBalance = IERC20(meme).balanceOf(address(this));
+        Meme(meme).openMarket();
+    }
+
+    function claim(address account) external {
+        if (!ended) revert PreMeme__OnGoing();
+        uint256 _balance = account_Balance[account];
+        if (_balance == 0) revert PreMeme__NotEligible();
+        account_Balance[account] = 0;
+        uint256 _memeBalance = memeBalance * _balance / totalBalance;
+        IERC20(meme).transfer(account, _memeBalance);
+    }
+    
+}
+
 contract MemeFees {
 
     address internal immutable base;
@@ -47,8 +100,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     address public immutable base;
     address public immutable fees;
     address public immutable factory;
+    address public immutable preMeme;
 
     uint256 public maxSupply = INITIAL_SUPPLY;
+    bool public open = false;
 
     // bonding curve state
     uint256 public reserveBase = 0;
@@ -71,6 +126,8 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     error Meme__SlippageToleranceExceeded();
     error Meme__StatusLimitExceeded();
     error Meme__StatusRequired();
+    error Meme__MarketNotOpen();
+    error Meme__NotAuthorized();
 
     /*----------  EVENTS ------------------------------------------------*/
 
@@ -101,6 +158,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         factory = msg.sender;
         base = _base;
         fees = address(new MemeFees(_base));
+        preMeme = address(new PreMeme(_base));
 
         uri = _uri;
         status = "Bm, would you like to say henlo?";
@@ -112,6 +170,8 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         notZeroInput(amountIn)
         notExpired(expireTimestamp) 
     {
+        if (!open && msg.sender != preMeme) revert Meme__MarketNotOpen();
+
         uint256 feeBase = amountIn * FEE / DIVISOR;
         uint256 newReserveBase = RESERVE_VIRTUAL_BASE + reserveBase + amountIn - feeBase;
         uint256 newReserveMeme = (RESERVE_VIRTUAL_BASE + reserveBase) * reserveMeme / newReserveBase;
@@ -159,10 +219,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         emit Meme__Sell(msg.sender, to, amountIn, amountOut);
 
         _burn(msg.sender, amountIn - feeMeme);
-        // if (statusHolder != address(0)) {
-        //     transfer(statusHolder, feeMeme / 2);
-        //     feeMeme -= feeMeme / 2;
-        // }
+        if (statusHolder != address(0)) {
+            transfer(statusHolder, feeMeme / 2);
+            feeMeme -= feeMeme / 2;
+        }
         burnMeme(feeMeme);
         IERC20(base).transfer(to, amountOut);
     }
@@ -204,6 +264,11 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     }
 
     /*----------  RESTRICTED FUNCTIONS  ---------------------------------*/
+
+    function openMarket() external {
+        if (msg.sender != preMeme) revert Meme__NotAuthorized();
+        open = true;
+    }
 
     function _updateBase(uint256 amount) internal {
         IERC20(base).transfer(fees, amount);
