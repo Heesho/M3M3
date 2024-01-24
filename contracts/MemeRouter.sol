@@ -17,6 +17,8 @@ interface IMeme {
 }
 
 interface IPreMeme {
+    function endTimestamp() external view returns (uint256);
+    function ended() external view returns (bool);
     function totalBaseContributed() external view returns (uint256);
     function totalMemeBalance() external view returns (uint256);
     function contribute(address account, uint256 amount) external;
@@ -134,16 +136,14 @@ contract MemeRouter is Ownable {
 
     function redeem(address meme) external {
         address preMeme = IMeme(meme).preMeme();
+        if (block.timestamp > IPreMeme(preMeme).endTimestamp() && !IPreMeme(preMeme).ended()) {
+            IPreMeme(preMeme).openMarket();
+            emit MemeRouter__MarketOpened(meme, IPreMeme(preMeme).totalBaseContributed(), IPreMeme(preMeme).totalMemeBalance());
+        }
         IPreMeme(preMeme).redeem(msg.sender);
         uint256 memeBalance = IERC20(meme).balanceOf(address(this));
         IERC20(meme).transfer(msg.sender, memeBalance);
         emit MemeRouter__Redeemed(meme, msg.sender, memeBalance);
-    }
-
-    function openMarket(address meme) external {
-        address preMeme = IMeme(meme).preMeme();
-        IPreMeme(preMeme).openMarket();
-        emit MemeRouter__MarketOpened(meme, IPreMeme(preMeme).totalBaseContributed(), IPreMeme(preMeme).totalMemeBalance());
     }
 
     // Function to receive Ether. msg.data must be empty

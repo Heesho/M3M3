@@ -7,7 +7,7 @@ require("solidity-coverage");
 /*===================================================================*/
 /*===========================  SETTINGS  ============================*/
 
-const CHAIN_ID = 84531; // Mumbai chain id
+const CHAIN_ID = 80001; // Mumbai chain id
 
 /*===========================  END SETTINGS  ========================*/
 /*===================================================================*/
@@ -45,15 +45,15 @@ module.exports = {
     },
   },
   networks: {
-    // mainnet: {
-    // url: RPC_URL,
-    // chainId: CHAIN_ID,
-    // accounts: [PRIVATE_KEY],
-    // },
+    mainnet: {
+      url: RPC_URL,
+      chainId: CHAIN_ID,
+      accounts: [PRIVATE_KEY],
+    },
     hardhat: {},
   },
   etherscan: {
-    // apiKey: SCAN_API_KEY,
+    apiKey: SCAN_API_KEY,
   },
   paths: {
     sources: "./contracts",

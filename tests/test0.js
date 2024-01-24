@@ -92,12 +92,12 @@ describe("local: test0", function () {
     await router.connect(user1).contribute(meme0.address, { value: ten });
   });
 
-  it("User0 tries to open the market", async function () {
-    console.log("******************************************************");
-    await expect(
-      router.connect(user0).openMarket(meme0.address)
-    ).to.be.revertedWith("PreMeme__InProgress");
-  });
+  // it("User0 tries to open the market", async function () {
+  //   console.log("******************************************************");
+  //   await expect(
+  //     router.connect(user0).openMarket(meme0.address)
+  //   ).to.be.revertedWith("PreMeme__InProgress");
+  // });
 
   it("Forward 1 hour", async function () {
     console.log("******************************************************");
@@ -105,17 +105,17 @@ describe("local: test0", function () {
     await network.provider.send("evm_mine");
   });
 
-  it("User0 opens the market", async function () {
-    console.log("******************************************************");
-    await router.connect(user0).openMarket(meme0.address);
-  });
+  // it("User0 opens the market", async function () {
+  //   console.log("******************************************************");
+  //   await router.connect(user0).openMarket(meme0.address);
+  // });
 
-  it("User0 tries to open the market", async function () {
-    console.log("******************************************************");
-    await expect(
-      router.connect(user0).openMarket(meme0.address)
-    ).to.be.revertedWith("PreMeme__Concluded");
-  });
+  // it("User0 tries to open the market", async function () {
+  //   console.log("******************************************************");
+  //   await expect(
+  //     router.connect(user0).openMarket(meme0.address)
+  //   ).to.be.revertedWith("PreMeme__Concluded");
+  // });
 
   it("User1 redeems meme0 contribution", async function () {
     console.log("******************************************************");
@@ -146,10 +146,10 @@ describe("local: test0", function () {
     await router.connect(user0).contribute(meme1.address, { value: ten });
   });
 
-  it("User0 opens the market", async function () {
-    console.log("******************************************************");
-    await router.connect(user0).openMarket(meme1.address);
-  });
+  // it("User0 opens the market", async function () {
+  //   console.log("******************************************************");
+  //   await router.connect(user0).openMarket(meme1.address);
+  // });
 
   it("User1 redeems meme1 contribution", async function () {
     console.log("******************************************************");

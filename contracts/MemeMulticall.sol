@@ -22,6 +22,7 @@ interface IMeme {
     function preMeme() external view returns (address);
     function uri() external view returns (string memory);
     function status() external view returns (string memory);
+    function statusHolder() external view returns (address);
     function reserveBase() external view returns (uint256);
     function RESERVE_VIRTUAL_BASE() external view returns (uint256);
     function reserveMeme() external view returns (uint256);
@@ -62,20 +63,13 @@ contract MemeMulticall {
         uint256 marketOpenTimestamp;
         uint256 baseContributed;
         
-        uint256 reserveVirtualBase;
-        uint256 reserveRealBase;
-        uint256 reserveRealMeme;
         uint256 maxSupply;
-
-        uint256 floorPrice;
-        uint256 marketPrice;
-        uint256 tvl;
-        uint256 totalFeesBase;
+        uint256 price;
+        address statusHolder;
 
         uint256 accountContributed;
         uint256 accountRedeemable;
         uint256 accountNative;
-        uint256 accountBase;
         uint256 accountBalance;
         uint256 accountClaimableBase;
     }
@@ -122,21 +116,19 @@ contract MemeMulticall {
         memeData.marketOpen = !IPreMeme(preMeme).ended();
         memeData.marketOpenTimestamp = IPreMeme(preMeme).endTimestamp();
         memeData.baseContributed = IPreMeme(preMeme).totalBaseContributed();
+        uint256 fee = memeData.baseContributed * FEE / DIVISOR;
 
-        memeData.reserveVirtualBase = IMeme(memeData.meme).RESERVE_VIRTUAL_BASE();
-        memeData.reserveRealBase = IMeme(memeData.meme).reserveBase();
-        memeData.reserveRealMeme = IMeme(memeData.meme).reserveMeme();
+        uint256 newReserveBase = IMeme(memeData.meme).reserveBase() + IMeme(memeData.meme).RESERVE_VIRTUAL_BASE() + memeData.baseContributed - fee;
+        uint256 newReserveMeme = (IMeme(memeData.meme).reserveBase() + IMeme(memeData.meme).RESERVE_VIRTUAL_BASE()) * IMeme(memeData.meme).reserveMeme() / newReserveBase;
+        uint256 expectedMemeAmount = IMeme(memeData.meme).reserveMeme() - newReserveMeme;
+
         memeData.maxSupply = IMeme(memeData.meme).maxSupply();
-
-        memeData.floorPrice = IMeme(memeData.meme).getFloorPrice() * getBasePrice() / 1e18;
-        memeData.marketPrice = IMeme(memeData.meme).getMarketPrice() * getBasePrice() / 1e18;
-        memeData.tvl = (memeData.reserveRealBase + memeData.reserveVirtualBase) * 2 * getBasePrice() / 1e18;
-        memeData.totalFeesBase = IMeme(memeData.meme).totalFeesBase();
+        memeData.price = (memeData.marketOpen ? IMeme(memeData.meme).getMarketPrice() * getBasePrice() / 1e18 : memeData.baseContributed * getBasePrice() / expectedMemeAmount);
+        memeData.statusHolder = IMeme(memeData.meme).statusHolder();
 
         memeData.accountContributed = IPreMeme(preMeme).account_BaseContributed(account);
-        memeData.accountRedeemable = (memeData.marketOpen ? IPreMeme(preMeme).totalMemeBalance() * memeData.accountContributed / memeData.baseContributed : 0);
+        memeData.accountRedeemable = (memeData.marketOpen ? IPreMeme(preMeme).totalMemeBalance() * memeData.accountContributed / memeData.baseContributed : expectedMemeAmount * memeData.accountContributed / memeData.baseContributed);
         memeData.accountNative = account.balance;
-        memeData.accountBase = IERC20(base).balanceOf(account);
         memeData.accountBalance = IERC20(memeData.meme).balanceOf(account);
         memeData.accountClaimableBase = IMeme(memeData.meme).claimableBase(account);
 

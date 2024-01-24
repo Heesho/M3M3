@@ -143,6 +143,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     event Meme__Fees(address indexed sender, uint256 amountBase, uint256 amountMeme);
     event Meme__Claim(address indexed sender, uint256 amountBase);
     event Meme__StatusUpated(address indexed sender, string status);
+    event Meme__StatusFee(address indexed sender, uint256 amountBase);
+    event Meme__ProviderFee(address indexed sender, uint256 amountBase);
+    event Meme__ProtocolFee(address indexed sender, uint256 amountBase);
+    event Meme__Burn(address indexed sender, uint256 amountMeme);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -195,12 +199,15 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         if (provider != address(0)) {
             uint256 providerFee = feeBase * PROVIDER_FEE / DIVISOR;
             IERC20(base).transfer(provider, providerFee);
+            emit Meme__ProviderFee(provider, providerFee);
             uint256 protocolFee = feeBase * PROTOCOL_FEE / DIVISOR;
             IERC20(base).transfer(IMemeFactory(factory).treasury(), protocolFee);
+            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), protocolFee);
             feeBase -= (providerFee + protocolFee);
         } else {
             uint256 protocolFee = feeBase * PROTOCOL_FEE / DIVISOR;
             IERC20(base).transfer(IMemeFactory(factory).treasury(), protocolFee);
+            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), protocolFee);
             feeBase -= protocolFee;
         }
         _mint(to, amountOut);
@@ -228,6 +235,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         _burn(msg.sender, amountIn - feeMeme);
         if (statusHolder != address(0)) {
             transfer(statusHolder, feeMeme / 2);
+            emit Meme__StatusFee(statusHolder, feeMeme / 2);
             feeMeme -= feeMeme / 2;
         }
         burnMeme(feeMeme);
@@ -268,6 +276,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     {
         maxSupply -= amount;
         _burn(msg.sender, amount);
+        emit Meme__Burn(msg.sender, amount);
     }
 
     /*----------  RESTRICTED FUNCTIONS  ---------------------------------*/
