@@ -36,6 +36,7 @@ contract MemeFactory is Ownable {
     
     event MemeFactory__MemeCreated(uint256 index, address meme);
     event MemeFactory__TreasuryUpdated(address treasury);
+    event MemeFactory__MinAmountInUpdated(uint256 minAmountIn);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -80,10 +81,12 @@ contract MemeFactory is Ownable {
 
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
+        emit MemeFactory__TreasuryUpdated(_treasury);
     }
 
     function setMinAmountIn(uint256 _minAmountIn) external onlyOwner {
         minAmountIn = _minAmountIn;
+        emit MemeFactory__MinAmountInUpdated(_minAmountIn);
     }
 
     /*----------  VIEW FUNCTIONS  ---------------------------------------*/

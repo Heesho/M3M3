@@ -40,8 +40,8 @@ contract MemeRouter is Ownable {
 
     mapping(address => address) public referrals; // account => affiliate
 
-    event MemeRouter__Buy(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut, uint256 timestamp);
-    event MemeRouter__Sell(address indexed meme, address indexed account, uint256 amountIn, uint256 amountOut, uint256 timestamp);
+    event MemeRouter__Buy(address indexed meme, address indexed account, address indexed affiliate, uint256 amountIn, uint256 amountOut);
+    event MemeRouter__Sell(address indexed meme, address indexed account, uint256 amountIn, uint256 amountOut);
     event MemeRouter__AffiliateSet(address indexed account, address indexed affiliate);
     event MemeRouter__ClaimFees(address indexed meme, address indexed account);
     event MemeRouter__MemeCreated(address indexed meme, address indexed account);
@@ -77,7 +77,7 @@ contract MemeRouter is Ownable {
         (bool success, ) = msg.sender.call{value: baseBalance}("");
         require(success, "Failed to send ETH");
 
-        emit MemeRouter__Buy(meme, msg.sender, referrals[msg.sender], msg.value, memeBalance, block.timestamp);
+        emit MemeRouter__Buy(meme, msg.sender, referrals[msg.sender], msg.value, memeBalance);
     }
 
     function sell(
@@ -96,7 +96,7 @@ contract MemeRouter is Ownable {
         require(success, "Failed to send ETH");
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
 
-        emit MemeRouter__Sell(meme, msg.sender, baseBalance, amountIn, block.timestamp);
+        emit MemeRouter__Sell(meme, msg.sender, baseBalance, amountIn);
     }
 
     function claimFees(address[] calldata memes) external {
@@ -116,7 +116,8 @@ contract MemeRouter is Ownable {
         address meme = IMemeFactory(factory).createMeme(name, symbol, uri, msg.sender, msg.value);
         IERC20(meme).transfer(msg.sender, IERC20(meme).balanceOf(address(this)));
         IERC20(base).transfer(msg.sender, IERC20(base).balanceOf(address(this)));
-        emit MemeRouter__MemeCreated(meme, msg.sender);
+        emit MemeRouter__Contributed(meme, msg.sender, msg.value);
+        emit MemeRouter__MemeCreated(meme, msg.sender); // add index
         return meme;
     }
 

@@ -92,10 +92,10 @@ async function getContracts() {
     "0xC2972700E071ad08DDB1cD3fd16F17b3762De066"
   );
 
-  // meme = await ethers.getContractAt(
-  //   "contracts/Meme.sol:Meme",
-  //   "0xA843BBCD7f5770A64C2A052759fb2a97267EF955"
-  // );
+  meme = await ethers.getContractAt(
+    "contracts/Meme.sol:Meme",
+    "0xA843BBCD7f5770A64C2A052759fb2a97267EF955"
+  );
 
   console.log("Contracts Retrieved");
 }
@@ -207,6 +207,16 @@ async function verifyMeme() {
   console.log("Meme Verified");
 }
 
+async function verifyPreMeme() {
+  console.log("Starting Meme Verification");
+  await hre.run("verify:verify", {
+    address: await meme.preMeme(),
+    contract: "contracts/Meme.sol:PreMeme",
+    constructorArguments: [BASE_ADDRESS],
+  });
+  console.log("Meme Verified");
+}
+
 async function main() {
   const [wallet] = await ethers.getSigners();
   console.log("Using wallet: ", wallet.address);
@@ -231,7 +241,7 @@ async function main() {
 
   // console.log("Starting System Verificatrion Deployment");
   // await verifyFactory();
-  await verifyMulticall();
+  // await verifyMulticall();
   // await verifyRouter();
 
   //===================================================================
@@ -248,6 +258,7 @@ async function main() {
 
   // console.log("Starting Meme Verification");
   // await verifyMeme();
+  await verifyPreMeme();
   // console.log("Meme Verified");
 }
 
