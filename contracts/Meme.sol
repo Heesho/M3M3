@@ -121,6 +121,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     mapping(address => uint256) public supplyIndexBase;
     mapping(address => uint256) public claimableBase;
 
+    // borrowing
+    uint256 public totalDebt;
+    mapping(address => uint256) public account_Debt;
+
     address public statusHolder;
     string public uri;
     string public status;
@@ -134,6 +138,8 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     error Meme__StatusRequired();
     error Meme__MarketNotOpen();
     error Meme__NotAuthorized();
+    error Meme__OutstandingDebt();
+    error Meme__CreditLimit();
 
     /*----------  EVENTS ------------------------------------------------*/
 
@@ -146,6 +152,8 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     event Meme__ProviderFee(address indexed account, uint256 amountBase);
     event Meme__ProtocolFee(address indexed account, uint256 amountBase);
     event Meme__Burn(address indexed account, uint256 amountMeme);
+    event Meme__Borrow(address indexed account, uint256 amountBase);
+    event Meme__Repay(address indexed account, uint256 amountBase);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -243,6 +251,32 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         IERC20(base).transfer(to, amountOut);
     }
 
+    function borrow(uint256 amountBase) 
+        external 
+        nonReentrant
+        notZeroInput(amountBase)
+    {
+        address account = msg.sender;
+        uint256 credit = getAccountCredit(account);
+        if (credit < amountBase) revert Meme__CreditLimit();
+        totalDebt += amountBase;
+        account_Debt[account] += amountBase;
+        emit Meme__Borrow(account, amountBase);
+        IERC20(base).transfer(account, amountBase);
+    }
+
+    function repay(uint256 amountBase) 
+        external 
+        nonReentrant
+        notZeroInput(amountBase)
+    {
+        address account = msg.sender;
+        totalDebt -= amountBase;
+        account_Debt[account] -= amountBase;
+        emit Meme__Repay(account, amountBase);
+        IERC20(base).transferFrom(account, address(this), amountBase);
+    }
+
     function claimFees(address account) 
         external 
         returns (uint256 claimedBase) 
@@ -328,6 +362,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         override(ERC20)
     {
         super._beforeTokenTransfer(from, to, amount);
+        if (account_Debt[from] > 0) revert Meme__OutstandingDebt();
         _updateFor(from);
         _updateFor(to);
     }
@@ -354,6 +389,11 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     function getFloorPrice() external view returns (uint256) {
         return (RESERVE_VIRTUAL_BASE * PRECISION) / maxSupply;
+    }
+
+    function getAccountCredit(address account) public view returns (uint256) {
+        if (balanceOf(account) == 0) return 0;
+        return ((RESERVE_VIRTUAL_BASE * INITIAL_SUPPLY / (INITIAL_SUPPLY - balanceOf(account))) - RESERVE_VIRTUAL_BASE) - account_Debt[account];
     }
 
 }
