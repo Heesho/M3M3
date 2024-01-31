@@ -26,7 +26,7 @@ const oneHundredThousand = convert("100000", 18);
 
 let owner, multisig, treasury, user0, user1, user2;
 let memeFactory, meme0, meme1, meme2;
-let multicall, router;
+let multicall, graphMulticall, router;
 let base;
 
 describe("local: test0", function () {
@@ -53,6 +53,15 @@ describe("local: test0", function () {
       base.address
     );
     console.log("- Multicall Initialized");
+
+    const graphMulticallArtifact = await ethers.getContractFactory(
+      "MemeGraphMulticall"
+    );
+    graphMulticall = await graphMulticallArtifact.deploy(
+      memeFactory.address,
+      base.address
+    );
+    console.log("- Graph Multicall Initialized");
 
     const routerArtifact = await ethers.getContractFactory("MemeRouter");
     router = await routerArtifact.deploy(memeFactory.address, base.address);
@@ -433,6 +442,18 @@ describe("local: test0", function () {
       (await multicall.getMemeCount()).add(1),
       user0.address
     );
+    console.log(res);
+  });
+
+  it("Meme Data", async function () {
+    console.log("******************************************************");
+    let res = await graphMulticall.getMemeData(meme0.address);
+    console.log(res);
+  });
+
+  it("Account Data", async function () {
+    console.log("******************************************************");
+    let res = await graphMulticall.getAccountData(meme0.address, user0.address);
     console.log(res);
   });
 });

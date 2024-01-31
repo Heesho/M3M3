@@ -1,6 +1,7 @@
 const { ethers } = require("hardhat");
 const { utils, BigNumber } = require("ethers");
 const hre = require("hardhat");
+const AddressZero = "0x0000000000000000000000000000000000000000";
 
 /*===================================================================*/
 /*===========================  SETTINGS  ============================*/
@@ -72,7 +73,7 @@ const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 const convert = (amount, decimals) => ethers.utils.parseUnits(amount, decimals);
 
 // Contract Variables
-let factory, multicall, router;
+let factory, multicall, graphMulticall, router;
 let meme;
 
 /*===================================================================*/
@@ -81,20 +82,23 @@ let meme;
 async function getContracts() {
   factory = await ethers.getContractAt(
     "contracts/MemeFactory.sol:MemeFactory",
-    "0xb903FB333701f6F2f40045a0F5DC0ffcb095db59"
+    "0x3611c2F4a74eeb53e999BBD63e55c948a5E199Dc"
   );
   multicall = await ethers.getContractAt(
     "contracts/MemeMulticall.sol:MemeMulticall",
-    "0xD227516CB3D3097bc4B1859ff283fbe437Ca986a"
+    "0x67190Bb7a0479d8108AEfB61F111503337b02df2"
+  );
+  graphMulticall = await ethers.getContractAt(
+    "contracts/MemeGraphMulticall.sol:MemeGraphMulticall",
+    "0x18B01cc4C9eC26D38E806374c8D78C269a810Ba6"
   );
   router = await ethers.getContractAt(
     "contracts/MemeRouter.sol:MemeRouter",
-    "0xC2972700E071ad08DDB1cD3fd16F17b3762De066"
+    "0x9ECC04Ac4a088c4880b15002AbA5ae29875e57f0"
   );
-
   meme = await ethers.getContractAt(
     "contracts/Meme.sol:Meme",
-    "0xA843BBCD7f5770A64C2A052759fb2a97267EF955"
+    "0x655Bf95BCf9fCc104C5Ff51799F9992df73832F4"
   );
 
   console.log("Contracts Retrieved");
@@ -133,6 +137,23 @@ async function deployMulticall() {
   console.log("Multicall Deployed at:", multicall.address);
 }
 
+async function deployGraphMulticall() {
+  console.log("Starting MemeGraphMulticall Deployment");
+  const multicallArtifact = await ethers.getContractFactory(
+    "MemeGraphMulticall"
+  );
+  const multicallContract = await multicallArtifact.deploy(
+    factory.address,
+    BASE_ADDRESS,
+    {
+      gasPrice: ethers.gasPrice,
+    }
+  );
+  graphMulticall = await multicallContract.deployed();
+  await sleep(5000);
+  console.log("GraphMulticall Deployed at:", graphMulticall.address);
+}
+
 async function deployRouter() {
   console.log("Starting MemeRouter Deployment");
   const routerArtifact = await ethers.getContractFactory("MemeRouter");
@@ -152,6 +173,7 @@ async function printDeployment() {
   console.log("**************************************************************");
   console.log("Factory: ", factory.address);
   console.log("Multicall: ", multicall.address);
+  console.log("GraphMulticall: ", graphMulticall.address);
   console.log("Router: ", router.address);
   console.log("**************************************************************");
 }
@@ -176,6 +198,16 @@ async function verifyMulticall() {
   console.log("Multicall Verified");
 }
 
+async function verifyGraphMulticall() {
+  console.log("Starting GraphMulticall Verification");
+  await hre.run("verify:verify", {
+    address: graphMulticall.address,
+    contract: "contracts/MemeGraphMulticall.sol:MemeGraphMulticall",
+    constructorArguments: [factory.address, BASE_ADDRESS],
+  });
+  console.log("GreaphMulticall Verified");
+}
+
 async function verifyRouter() {
   console.log("Starting Router Verification");
   await hre.run("verify:verify", {
@@ -188,21 +220,27 @@ async function verifyRouter() {
 
 async function deployMeme() {
   console.log("Starting Meme Deployment");
-  await router.createMeme(meme8.name, meme8.symbol, meme8.uri, {
+  await router.createMeme(meme7.name, meme7.symbol, meme7.uri, {
     value: ethers.utils.parseEther("0.1"),
     gasPrice: ethers.gasPrice,
   });
-  meme = await factory.getMemeByIndex(meme8.index);
+  meme = await factory.getMemeByIndex(meme7.index);
   await sleep(5000);
   console.log("Meme Deployed at:", meme.address);
 }
 
-async function verifyMeme() {
+async function verifyMeme(wallet) {
   console.log("Starting Meme Verification");
   await hre.run("verify:verify", {
     address: meme.address,
     contract: "contracts/Meme.sol:Meme",
-    constructorArguments: [meme1.name, meme1.symbol, meme1.uri, BASE_ADDRESS],
+    constructorArguments: [
+      meme1.name,
+      meme1.symbol,
+      meme1.uri,
+      BASE_ADDRESS,
+      wallet,
+    ],
   });
   console.log("Meme Verified");
 }
@@ -230,6 +268,7 @@ async function main() {
   // console.log("Starting System Deployment");
   // await deployFactory();
   // await deployMulticall();
+  // await deployGraphMulticall();
   // await deployRouter();
   // await printDeployment();
 
@@ -242,6 +281,7 @@ async function main() {
   // console.log("Starting System Verificatrion Deployment");
   // await verifyFactory();
   // await verifyMulticall();
+  // await verifyGraphMulticall();
   // await verifyRouter();
 
   //===================================================================
@@ -257,9 +297,38 @@ async function main() {
   //===================================================================
 
   // console.log("Starting Meme Verification");
-  // await verifyMeme();
-  await verifyPreMeme();
+  // await verifyMeme(wallet.address);
+  // await verifyPreMeme();
   // console.log("Meme Verified");
+
+  //===================================================================
+  // 4. Transactions
+  //===================================================================
+
+  // meme = await ethers.getContractAt(
+  //   "contracts/Meme.sol:Meme",
+  //   await factory.getMemeByIndex(1)
+  // );
+
+  // contribute
+  await router.contribute(meme.address, {
+    value: ethers.utils.parseEther("0.02"),
+  });
+
+  // redeem
+  // await router.redeem(meme.address);
+
+  // buy
+  // await router.buy(meme.address, AddressZero, 0, 1904422437, {
+  //   value: ethers.utils.parseEther("0.05"),
+  // });
+
+  // sell
+  // await meme.approve(router.address, ethers.utils.parseEther("10"));
+  // await router.sell(meme.address, ethers.utils.parseEther("10"), 0, 0);
+
+  // claim
+  // await router.claimFees([meme.address]);
 }
 
 main()

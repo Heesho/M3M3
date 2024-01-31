@@ -61,7 +61,7 @@ contract MemeFactory is Ownable {
         if (bytes(name).length > NAME_MAX_LENGTH) revert MemeFactory__NameLimitExceeded();
         if (bytes(symbol).length > SYMBOL_MAX_LENGTH) revert MemeFactory__SymbolLimitExceeded();
 
-        address meme = address(new Meme(name, symbol, uri, base));
+        address meme = address(new Meme(name, symbol, uri, base, account));
         address preMeme = Meme(meme).preMeme();
         index_Meme[count] = meme;
         meme_Index[meme] = count;

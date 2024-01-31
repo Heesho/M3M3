@@ -14,8 +14,8 @@ interface IMemeFactory {
 contract PreMeme is ReentrancyGuard {
     uint256 public constant DURATION = 3600;
     
-    address internal immutable base;
-    address internal immutable meme;
+    address public immutable base;
+    address public immutable meme;
 
     uint256 public immutable endTimestamp;
     bool public ended = false;
@@ -96,8 +96,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public constant RESERVE_VIRTUAL_BASE = 100 * PRECISION;
     uint256 public constant INITIAL_SUPPLY = 1000000 * PRECISION;
     uint256 public constant FEE = 100;
-    uint256 public constant PROTOCOL_FEE = 2500;
-    uint256 public constant PROVIDER_FEE = 2500;
+    uint256 public constant FEE_AMOUNT = 2000;
     uint256 public constant DIVISOR = 10000;
     uint256 public constant STATUS_MAX_LENGTH = 280;
     uint256 public constant STATUS_UPDATE_FEE = 10 * PRECISION;
@@ -138,15 +137,15 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     /*----------  EVENTS ------------------------------------------------*/
 
-    event Meme__Buy(address indexed sender, address to, uint256 amountIn, uint256 amountOut);
-    event Meme__Sell(address indexed sender, address to, uint256 amountIn, uint256 amountOut);
-    event Meme__Fees(address indexed sender, uint256 amountBase, uint256 amountMeme);
-    event Meme__Claim(address indexed sender, uint256 amountBase);
-    event Meme__StatusUpated(address indexed sender, string status);
-    event Meme__StatusFee(address indexed sender, uint256 amountBase);
-    event Meme__ProviderFee(address indexed sender, uint256 amountBase);
-    event Meme__ProtocolFee(address indexed sender, uint256 amountBase);
-    event Meme__Burn(address indexed sender, uint256 amountMeme);
+    event Meme__Buy(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
+    event Meme__Sell(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
+    event Meme__Fees(address indexed account, uint256 amountBase, uint256 amountMeme);
+    event Meme__Claim(address indexed account, uint256 amountBase);
+    event Meme__StatusUpdated(address indexed account, string status);
+    event Meme__StatusFee(address indexed account, uint256 amountBase);
+    event Meme__ProviderFee(address indexed account, uint256 amountBase);
+    event Meme__ProtocolFee(address indexed account, uint256 amountBase);
+    event Meme__Burn(address indexed account, uint256 amountMeme);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -162,7 +161,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     /*----------  FUNCTIONS  --------------------------------------------*/
 
-    constructor(string memory _name, string memory _symbol, string memory _uri, address _base)
+    constructor(string memory _name, string memory _symbol, string memory _uri, address _base, address account)
         ERC20(_name, _symbol)
         ERC20Permit(_name)
     {
@@ -173,6 +172,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         uri = _uri;
         status = "Bm, would you like to say henlo?";
+        statusHolder = account;
     }
 
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) 
@@ -197,18 +197,24 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         IERC20(base).transferFrom(msg.sender, address(this), amountIn);
         if (provider != address(0)) {
-            uint256 providerFee = feeBase * PROVIDER_FEE / DIVISOR;
-            IERC20(base).transfer(provider, providerFee);
-            emit Meme__ProviderFee(provider, providerFee);
-            uint256 protocolFee = feeBase * PROTOCOL_FEE / DIVISOR;
-            IERC20(base).transfer(IMemeFactory(factory).treasury(), protocolFee);
-            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), protocolFee);
-            feeBase -= (providerFee + protocolFee);
+            uint256 feeAmount = feeBase * FEE_AMOUNT / DIVISOR;
+
+            IERC20(base).transfer(provider, feeAmount);
+            emit Meme__ProviderFee(provider, feeAmount);
+            IERC20(base).transfer(statusHolder, feeAmount);
+            emit Meme__StatusFee(statusHolder, feeAmount);
+            IERC20(base).transfer(IMemeFactory(factory).treasury(), feeAmount);
+            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), feeAmount);
+
+            feeBase -= (3 * feeAmount);
         } else {
-            uint256 protocolFee = feeBase * PROTOCOL_FEE / DIVISOR;
-            IERC20(base).transfer(IMemeFactory(factory).treasury(), protocolFee);
-            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), protocolFee);
-            feeBase -= protocolFee;
+            uint256 feeAmount = feeBase * FEE_AMOUNT / DIVISOR;
+
+            IERC20(base).transfer(statusHolder, feeAmount);
+            emit Meme__StatusFee(statusHolder, feeAmount);
+            IERC20(base).transfer(IMemeFactory(factory).treasury(), feeAmount);
+            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), feeAmount);
+            feeBase -= (2 * feeAmount);
         }
         _mint(to, amountOut);
         _updateBase(feeBase); 
@@ -233,11 +239,6 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         emit Meme__Sell(msg.sender, to, amountIn, amountOut);
 
         _burn(msg.sender, amountIn - feeMeme);
-        if (statusHolder != address(0)) {
-            transfer(statusHolder, feeMeme / 2);
-            emit Meme__StatusFee(statusHolder, feeMeme / 2);
-            feeMeme -= feeMeme / 2;
-        }
         burnMeme(feeMeme);
         IERC20(base).transfer(to, amountOut);
     }
@@ -262,12 +263,13 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     function updateStatus(address account, string memory _status) 
         external 
     {
+        if (!open) revert Meme__MarketNotOpen();
         if (bytes(_status).length == 0) revert Meme__StatusRequired();
         if (bytes(_status).length > STATUS_MAX_LENGTH) revert Meme__StatusLimitExceeded();
         burnMeme(STATUS_UPDATE_FEE);
         status = _status;
         statusHolder = account;
-        emit Meme__StatusUpated(account, _status);
+        emit Meme__StatusUpdated(account, _status);
     }
 
     function burnMeme(uint256 amount) 

@@ -113,7 +113,7 @@ contract MemeMulticall {
         memeData.status = IMeme(memeData.meme).status();
 
         address preMeme = IMeme(memeData.meme).preMeme();
-        memeData.marketOpen = !IPreMeme(preMeme).ended();
+        memeData.marketOpen = IPreMeme(preMeme).ended();
         memeData.marketOpenTimestamp = IPreMeme(preMeme).endTimestamp();
         memeData.baseContributed = IPreMeme(preMeme).totalBaseContributed();
         uint256 fee = memeData.baseContributed * FEE / DIVISOR;
