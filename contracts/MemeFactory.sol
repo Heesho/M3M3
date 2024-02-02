@@ -11,14 +11,14 @@ contract MemeFactory is Ownable {
 
     uint256 public constant NAME_MAX_LENGTH = 80;
     uint256 public constant SYMBOL_MAX_LENGTH = 8;
+    uint256 public constant MIN_AMOUNT_IN = 100000000000000000; // 0.1 ETH
 
     /*----------  STATE VARIABLES  --------------------------------------*/
     
     address public immutable base;
     address public treasury;
 
-    uint256 public minAmountIn = 100000000000000000; // 0.1 ETH
-    uint256 count = 1;
+    uint256 public index = 1;
     mapping(uint256=>address) public index_Meme;
     mapping(address=>uint256) public meme_Index;
     mapping(string=>uint256) public symbol_Index;
@@ -36,7 +36,6 @@ contract MemeFactory is Ownable {
     
     event MemeFactory__MemeCreated(uint256 index, address meme);
     event MemeFactory__TreasuryUpdated(address treasury);
-    event MemeFactory__MinAmountInUpdated(uint256 minAmountIn);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
@@ -54,7 +53,7 @@ contract MemeFactory is Ownable {
         address account,
         uint256 amountIn
     ) external returns (address) {
-        if (amountIn < minAmountIn) revert MemeFactory__InsufficientAmountIn();
+        if (amountIn < MIN_AMOUNT_IN) revert MemeFactory__InsufficientAmountIn();
         if (symbol_Index[symbol] != 0) revert MemeFactory__SymbolExists();
         if (bytes(name).length == 0) revert MemeFactory__NameRequired();
         if (bytes(symbol).length == 0) revert MemeFactory__SymbolRequired();
@@ -63,12 +62,12 @@ contract MemeFactory is Ownable {
 
         address meme = address(new Meme(name, symbol, uri, base, account));
         address preMeme = Meme(meme).preMeme();
-        index_Meme[count] = meme;
-        meme_Index[meme] = count;
-        symbol_Index[symbol] = count;
+        index_Meme[index] = meme;
+        meme_Index[meme] = index;
+        symbol_Index[symbol] = index;
 
-        emit MemeFactory__MemeCreated(count, meme);
-        count++;
+        emit MemeFactory__MemeCreated(index, meme);
+        index++;
 
         IERC20(base).transferFrom(msg.sender, address(this), amountIn);
         IERC20(base).approve(preMeme, amountIn);
@@ -82,29 +81,6 @@ contract MemeFactory is Ownable {
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
         emit MemeFactory__TreasuryUpdated(_treasury);
-    }
-
-    function setMinAmountIn(uint256 _minAmountIn) external onlyOwner {
-        minAmountIn = _minAmountIn;
-        emit MemeFactory__MinAmountInUpdated(_minAmountIn);
-    }
-
-    /*----------  VIEW FUNCTIONS  ---------------------------------------*/
-
-    function getMemeCount() external view returns (uint256) {
-        return count - 1;
-    }
-
-    function getMemeByIndex(uint256 index) external view returns (address) {
-        return index_Meme[index];
-    }
-
-    function getIndexByMeme(address meme) external view returns (uint256) {
-        return meme_Index[meme];
-    }
-
-    function getIndexBySymbol(string memory symbol) external view returns (uint256) {
-        return symbol_Index[symbol];
     }
 
 }

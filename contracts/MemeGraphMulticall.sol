@@ -4,10 +4,10 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IMemeFactory {
-    function getMemeCount() external view returns (uint256);
-    function getMemeByIndex(uint256 index) external view returns (address);
-    function getIndexByMeme(address meme) external view returns (uint256);
-    function getIndexBySymbol(string memory symbol) external view returns (uint256);
+    function index() external view returns (uint256);
+    function index_Meme(uint256 index) external view returns (address);
+    function meme_Index(address meme) external view returns (uint256);
+    function symbol_Index(string memory symbol) external view returns (uint256);
 }
 
 interface IPreMeme {
@@ -32,6 +32,9 @@ interface IMeme {
     function getFloorPrice() external view returns (uint256);
     function claimableBase(address account) external view returns (uint256);
     function totalFeesBase() external view returns (uint256);
+    function getAccountCredit(address account) external view returns (uint256);
+    function account_Debt(address account) external view returns (uint256);
+    function totalDebt() external view returns (uint256);
 }
 
 contract MemeGraphMulticall {
@@ -73,6 +76,7 @@ contract MemeGraphMulticall {
         uint256 floorPrice;
         uint256 marketPrice;
         uint256 totalRewardsBase;
+        uint256 totalDebt;
     }
 
     struct AccountData {
@@ -80,6 +84,8 @@ contract MemeGraphMulticall {
         uint256 memeRedeemable;
         uint256 memeBalance;
         uint256 baseClaimable;
+        uint256 baseCredit;
+        uint256 baseDebt;
     }
 
     /*----------  FUNCTIONS  --------------------------------------------*/
@@ -92,23 +98,23 @@ contract MemeGraphMulticall {
     /*----------  VIEW FUNCTIONS  ---------------------------------------*/
 
     function getMemeCount() external view returns (uint256) {
-        return IMemeFactory(memeFactory).getMemeCount();
+        return IMemeFactory(memeFactory).index() - 1;
     }
 
     function getIndexByMeme(address meme) external view returns (uint256) {
-        return IMemeFactory(memeFactory).getIndexByMeme(meme);
+        return IMemeFactory(memeFactory).meme_Index(meme);
     }
 
     function getMemeByIndex(uint256 index) external view returns (address) {
-        return IMemeFactory(memeFactory).getMemeByIndex(index);
+        return IMemeFactory(memeFactory).index_Meme(index);
     }
 
     function getIndexBySymbol(string memory symbol) external view returns (uint256) {
-        return IMemeFactory(memeFactory).getIndexBySymbol(symbol);
+        return IMemeFactory(memeFactory).symbol_Index(symbol);
     }
 
     function getMemeData(address meme) public view returns (MemeData memory memeData) {
-        memeData.index = IMemeFactory(memeFactory).getIndexByMeme(meme);
+        memeData.index = IMemeFactory(memeFactory).meme_Index(meme);
         memeData.meme = meme;
         memeData.preMeme = IMeme(meme).preMeme();
         memeData.fees = IMeme(meme).fees();
@@ -136,7 +142,7 @@ contract MemeGraphMulticall {
         memeData.floorPrice = IMeme(memeData.meme).getFloorPrice();
         memeData.marketPrice = (memeData.marketOpen ? IMeme(memeData.meme).getMarketPrice() : memeData.baseContributed * 1e18 / memeData.preMemeBalance);
         memeData.totalRewardsBase = IMeme(memeData.meme).totalFeesBase();
-
+        memeData.totalDebt = IMeme(memeData.meme).totalDebt();
     }
 
     function getAccountData(address meme, address account) public view returns (AccountData memory accountData) {
@@ -151,6 +157,8 @@ contract MemeGraphMulticall {
             : expectedMemeAmount * accountData.baseContributed / IPreMeme(preMeme).totalBaseContributed());
         accountData.memeBalance = IERC20(meme).balanceOf(account);
         accountData.baseClaimable = IMeme(meme).claimableBase(account);
+        accountData.baseCredit = IMeme(meme).getAccountCredit(account);
+        accountData.baseDebt = IMeme(meme).account_Debt(account);
     }
     
 }

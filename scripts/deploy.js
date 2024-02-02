@@ -98,7 +98,7 @@ async function getContracts() {
   );
   meme = await ethers.getContractAt(
     "contracts/Meme.sol:Meme",
-    "0x655Bf95BCf9fCc104C5Ff51799F9992df73832F4"
+    "0x6F9Aa96F0352C040eA45f7ADE52EFf6df3935dB3"
   );
 
   console.log("Contracts Retrieved");
@@ -311,24 +311,24 @@ async function main() {
   // );
 
   // contribute
-  await router.contribute(meme.address, {
-    value: ethers.utils.parseEther("0.02"),
-  });
+  // await router.contribute(meme.address, {
+  //   value: ethers.utils.parseEther("0.01"),
+  // });
 
   // redeem
   // await router.redeem(meme.address);
 
   // buy
   // await router.buy(meme.address, AddressZero, 0, 1904422437, {
-  //   value: ethers.utils.parseEther("0.05"),
+  //   value: ethers.utils.parseEther("0.01"),
   // });
 
   // sell
-  // await meme.approve(router.address, ethers.utils.parseEther("10"));
-  // await router.sell(meme.address, ethers.utils.parseEther("10"), 0, 0);
+  // await meme.approve(router.address, ethers.utils.parseEther("1"));
+  // await router.sell(meme.address, ethers.utils.parseEther("1"), 0, 0);
 
   // claim
-  // await router.claimFees([meme.address]);
+  await router.claimFees([meme.address]);
 }
 
 main()

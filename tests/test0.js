@@ -456,4 +456,67 @@ describe("local: test0", function () {
     let res = await graphMulticall.getAccountData(meme0.address, user0.address);
     console.log(res);
   });
+
+  it("User0 borrows against meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user0)
+      .borrow(await meme0.getAccountCredit(user0.address));
+  });
+
+  it("Account Data", async function () {
+    console.log("******************************************************");
+    let res = await graphMulticall.getAccountData(meme0.address, user0.address);
+    console.log(res);
+  });
+
+  it("User0 tries to transfer and tries to sell", async function () {
+    console.log("******************************************************");
+    await expect(
+      meme0.connect(user0).transfer(user1.address, one)
+    ).to.be.revertedWith("Meme__OutstandingDebt");
+  });
+
+  it("User0 tries to sell meme0", async function () {
+    console.log("******************************************************");
+    await meme0
+      .connect(user0)
+      .approve(router.address, await meme0.balanceOf(user0.address));
+    await expect(
+      router
+        .connect(user0)
+        .sell(
+          meme0.address,
+          await meme0.balanceOf(user0.address),
+          0,
+          1904422437
+        )
+    ).to.be.revertedWith("Meme__OutstandingDebt");
+  });
+
+  it("User0 repays some WETH for meme0", async function () {
+    console.log("******************************************************");
+    await base.connect(user0).approve(meme0.address, one);
+    await meme0.connect(user0).repay(one);
+  });
+
+  it("User0 tries to transfer and tries to sell", async function () {
+    console.log("******************************************************");
+    await expect(
+      meme0.connect(user0).transfer(user1.address, one)
+    ).to.be.revertedWith("Meme__OutstandingDebt");
+  });
+
+  it("User0 repays all WETH", async function () {
+    console.log("******************************************************");
+    await base
+      .connect(user0)
+      .approve(meme0.address, await meme0.account_Debt(user0.address));
+    await meme0.connect(user0).repay(await meme0.account_Debt(user0.address));
+  });
+
+  it("User0 transfers meme0", async function () {
+    console.log("******************************************************");
+    await meme0.connect(user0).transfer(user1.address, one);
+  });
 });

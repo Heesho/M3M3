@@ -256,13 +256,12 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         nonReentrant
         notZeroInput(amountBase)
     {
-        address account = msg.sender;
-        uint256 credit = getAccountCredit(account);
+        uint256 credit = getAccountCredit(msg.sender);
         if (credit < amountBase) revert Meme__CreditLimit();
         totalDebt += amountBase;
-        account_Debt[account] += amountBase;
-        emit Meme__Borrow(account, amountBase);
-        IERC20(base).transfer(account, amountBase);
+        account_Debt[msg.sender] += amountBase;
+        emit Meme__Borrow(msg.sender, amountBase);
+        IERC20(base).transfer(msg.sender, amountBase);
     }
 
     function repay(uint256 amountBase) 
@@ -270,11 +269,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         nonReentrant
         notZeroInput(amountBase)
     {
-        address account = msg.sender;
         totalDebt -= amountBase;
-        account_Debt[account] -= amountBase;
-        emit Meme__Repay(account, amountBase);
-        IERC20(base).transferFrom(account, address(this), amountBase);
+        account_Debt[msg.sender] -= amountBase;
+        emit Meme__Repay(msg.sender, amountBase);
+        IERC20(base).transferFrom(msg.sender, address(this), amountBase);
     }
 
     function claimFees(address account) 

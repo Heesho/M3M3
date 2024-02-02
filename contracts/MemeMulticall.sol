@@ -4,10 +4,10 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IMemeFactory {
-    function getMemeCount() external view returns (uint256);
-    function getMemeByIndex(uint256 index) external view returns (address);
-    function getIndexByMeme(address meme) external view returns (uint256);
-    function getIndexBySymbol(string memory symbol) external view returns (uint256);
+    function index() external view returns (uint256);
+    function index_Meme(uint256 index) external view returns (address);
+    function meme_Index(address meme) external view returns (uint256);
+    function symbol_Index(string memory symbol) external view returns (uint256);
 }
 
 interface IPreMeme {
@@ -89,23 +89,23 @@ contract MemeMulticall {
     }
 
     function getMemeCount() external view returns (uint256) {
-        return IMemeFactory(memeFactory).getMemeCount();
+        return IMemeFactory(memeFactory).index() - 1;
     }
 
     function getIndexByMeme(address meme) external view returns (uint256) {
-        return IMemeFactory(memeFactory).getIndexByMeme(meme);
+        return IMemeFactory(memeFactory).meme_Index(meme);
     }
 
     function getMemeByIndex(uint256 index) external view returns (address) {
-        return IMemeFactory(memeFactory).getMemeByIndex(index);
+        return IMemeFactory(memeFactory).index_Meme(index);
     }
 
     function getIndexBySymbol(string memory symbol) external view returns (uint256) {
-        return IMemeFactory(memeFactory).getIndexBySymbol(symbol);
+        return IMemeFactory(memeFactory).symbol_Index(symbol);
     }
 
     function getMemeData(uint256 index, address account) public view returns (MemeData memory memeData) {
-        memeData.meme = IMemeFactory(memeFactory).getMemeByIndex(index);
+        memeData.meme = IMemeFactory(memeFactory).index_Meme(index);
         memeData.name = IERC20Metadata(memeData.meme).name();
         memeData.symbol = IERC20Metadata(memeData.meme).symbol();
 
