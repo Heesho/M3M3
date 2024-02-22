@@ -20,6 +20,7 @@ interface IPreMeme {
 
 interface IMeme {
     function preMeme() external view returns (address);
+    function fees() external view returns (address);
     function uri() external view returns (string memory);
     function status() external view returns (string memory);
     function statusHolder() external view returns (address);
@@ -31,17 +32,15 @@ interface IMeme {
     function getFloorPrice() external view returns (uint256);
     function claimableBase(address account) external view returns (uint256);
     function totalFeesBase() external view returns (uint256);
-}
-
-interface IChainlinkOracle {
-    function latestAnswer() external view returns (uint256);
+    function getAccountCredit(address account) external view returns (uint256);
+    function account_Debt(address account) external view returns (uint256);
+    function totalDebt() external view returns (uint256);
 }
 
 contract MemeMulticall {
 
     /*----------  CONSTANTS  --------------------------------------------*/
 
-    address public constant ORACLE = 0x0000000000000000000000000000000000000000;
     uint256 public constant FEE = 100;
     uint256 public constant DIVISOR = 10000;
     uint256 public constant PRECISION = 1e18;
@@ -52,26 +51,41 @@ contract MemeMulticall {
     address public immutable base;
 
     struct MemeData {
+        uint256 index;
         address meme;
+        address preMeme;
+        address fees;
+
         string name;
         string symbol;
-
         string uri;
         string status;
+        address statusHolder;
 
         bool marketOpen;
         uint256 marketOpenTimestamp;
-        uint256 baseContributed;
-        
-        uint256 maxSupply;
-        uint256 price;
-        address statusHolder;
 
-        uint256 accountContributed;
-        uint256 accountRedeemable;
-        uint256 accountNative;
-        uint256 accountBalance;
-        uint256 accountClaimableBase;
+        uint256 reserveVirtualBase;
+        uint256 reserveBase;
+        uint256 reserveMeme;
+        uint256 totalSupply;
+
+        uint256 baseContributed;
+        uint256 preMemeBalance;
+
+        uint256 floorPrice;
+        uint256 marketPrice;
+        uint256 totalRewardsBase;
+        uint256 totalDebt;
+    }
+
+    struct AccountData {
+        uint256 baseContributed;
+        uint256 memeRedeemable;
+        uint256 memeBalance;
+        uint256 baseClaimable;
+        uint256 baseCredit;
+        uint256 baseDebt;
     }
 
     /*----------  FUNCTIONS  --------------------------------------------*/
@@ -82,11 +96,6 @@ contract MemeMulticall {
     }
 
     /*----------  VIEW FUNCTIONS  ---------------------------------------*/
-
-    function getBasePrice() public view returns (uint256) {
-        if (ORACLE == address(0)) return 1e18;
-        return IChainlinkOracle(ORACLE).latestAnswer() * 1e18 / 1e8;
-    }
 
     function getMemeCount() external view returns (uint256) {
         return IMemeFactory(memeFactory).index() - 1;
@@ -104,50 +113,54 @@ contract MemeMulticall {
         return IMemeFactory(memeFactory).symbol_Index(symbol);
     }
 
-    function getMemeData(uint256 index, address account) public view returns (MemeData memory memeData) {
-        memeData.meme = IMemeFactory(memeFactory).index_Meme(index);
+    function getMemeData(address meme) public view returns (MemeData memory memeData) {
+        memeData.index = IMemeFactory(memeFactory).meme_Index(meme);
+        memeData.meme = meme;
+        memeData.preMeme = IMeme(meme).preMeme();
+        memeData.fees = IMeme(meme).fees();
+
         memeData.name = IERC20Metadata(memeData.meme).name();
         memeData.symbol = IERC20Metadata(memeData.meme).symbol();
-
         memeData.uri = IMeme(memeData.meme).uri();
         memeData.status = IMeme(memeData.meme).status();
-
-        address preMeme = IMeme(memeData.meme).preMeme();
-        memeData.marketOpen = IPreMeme(preMeme).ended();
-        memeData.marketOpenTimestamp = IPreMeme(preMeme).endTimestamp();
-        memeData.baseContributed = IPreMeme(preMeme).totalBaseContributed();
-        uint256 fee = memeData.baseContributed * FEE / DIVISOR;
-
-        uint256 newReserveBase = IMeme(memeData.meme).reserveBase() + IMeme(memeData.meme).RESERVE_VIRTUAL_BASE() + memeData.baseContributed - fee;
-        uint256 newReserveMeme = (IMeme(memeData.meme).reserveBase() + IMeme(memeData.meme).RESERVE_VIRTUAL_BASE()) * IMeme(memeData.meme).reserveMeme() / newReserveBase;
-        uint256 expectedMemeAmount = IMeme(memeData.meme).reserveMeme() - newReserveMeme;
-
-        memeData.maxSupply = IMeme(memeData.meme).maxSupply();
-        memeData.price = (memeData.marketOpen ? IMeme(memeData.meme).getMarketPrice() * getBasePrice() / 1e18 : memeData.baseContributed * getBasePrice() / expectedMemeAmount);
         memeData.statusHolder = IMeme(memeData.meme).statusHolder();
 
-        memeData.accountContributed = IPreMeme(preMeme).account_BaseContributed(account);
-        memeData.accountRedeemable = (memeData.marketOpen ? IPreMeme(preMeme).totalMemeBalance() * memeData.accountContributed / memeData.baseContributed : expectedMemeAmount * memeData.accountContributed / memeData.baseContributed);
-        memeData.accountNative = account.balance;
-        memeData.accountBalance = IERC20(memeData.meme).balanceOf(account);
-        memeData.accountClaimableBase = IMeme(memeData.meme).claimableBase(account);
+        memeData.marketOpen = IPreMeme(memeData.preMeme).ended();
+        memeData.marketOpenTimestamp = IPreMeme(memeData.preMeme).endTimestamp();
 
+        memeData.reserveVirtualBase = IMeme(memeData.meme).RESERVE_VIRTUAL_BASE();
+        memeData.reserveBase = IMeme(memeData.meme).reserveBase();
+        memeData.reserveMeme = IMeme(memeData.meme).reserveMeme();
+        memeData.totalSupply = IMeme(memeData.meme).maxSupply();
+
+        memeData.baseContributed = IPreMeme(memeData.preMeme).totalBaseContributed();
+        uint256 fee = memeData.baseContributed * FEE / DIVISOR;
+        uint256 newReserveBase = memeData.reserveBase + memeData.reserveVirtualBase + memeData.baseContributed - fee;
+        uint256 newReserveMeme = (memeData.reserveBase + memeData.reserveVirtualBase) * memeData.reserveMeme / newReserveBase;
+        memeData.preMemeBalance = memeData.reserveMeme - newReserveMeme;
+
+        memeData.floorPrice = IMeme(memeData.meme).getFloorPrice();
+        memeData.marketPrice = (memeData.marketOpen ? IMeme(memeData.meme).getMarketPrice() : memeData.baseContributed * 1e18 / memeData.preMemeBalance);
+        memeData.totalRewardsBase = IMeme(memeData.meme).totalFeesBase();
+        memeData.totalDebt = IMeme(memeData.meme).totalDebt();
     }
 
-    function getMemeDataArray(uint256[] memory indexes, address account) external view returns (MemeData[] memory memeDatas) {
-        memeDatas = new MemeData[](indexes.length);
-        for (uint256 i = 0; i < indexes.length; i++) {
-            memeDatas[i] = getMemeData(indexes[i], account);
-        }
+    function getAccountData(address meme, address account) public view returns (AccountData memory accountData) {
+        address preMeme = IMeme(meme).preMeme();
+        uint256 fee = IPreMeme(preMeme).totalBaseContributed() * FEE / DIVISOR;
+        uint256 newReserveBase = IMeme(meme).reserveBase() + IMeme(meme).RESERVE_VIRTUAL_BASE() + IPreMeme(IMeme(meme).preMeme()).totalBaseContributed() - fee;
+        uint256 newReserveMeme = (IMeme(meme).reserveBase() + IMeme(meme).RESERVE_VIRTUAL_BASE()) * IMeme(meme).reserveMeme() / newReserveBase;
+        uint256 expectedMemeAmount = IMeme(meme).reserveMeme() - newReserveMeme;
+
+        accountData.baseContributed = IPreMeme(IMeme(meme).preMeme()).account_BaseContributed(account);
+        accountData.memeRedeemable = (IPreMeme(preMeme).ended() ? IPreMeme(preMeme).totalMemeBalance() * accountData.baseContributed / IPreMeme(preMeme).totalBaseContributed() 
+            : expectedMemeAmount * accountData.baseContributed / IPreMeme(preMeme).totalBaseContributed());
+        accountData.memeBalance = IERC20(meme).balanceOf(account);
+        accountData.baseClaimable = IMeme(meme).claimableBase(account);
+        accountData.baseCredit = IMeme(meme).getAccountCredit(account);
+        accountData.baseDebt = IMeme(meme).account_Debt(account);
     }
 
-    function getMemeDataIndexes(uint256 start, uint256 end, address account) external view returns (MemeData[] memory memeDatas) {
-        memeDatas = new MemeData[](end - start);
-        for (uint256 i = start; i < end; i++) {
-            memeDatas[i - start] = getMemeData(i, account);
-        }
-    }
-    
     function quoteBuyIn(address meme, uint256 input, uint256 slippageTolerance) external view returns(uint256 output, uint256 slippage, uint256 minOutput, uint256 autoMinOutput) {
         uint256 fee = input * FEE / DIVISOR;
         uint256 newReserveBase = IMeme(meme).reserveBase() + IMeme(meme).RESERVE_VIRTUAL_BASE() + input - fee;
@@ -188,4 +201,10 @@ contract MemeMulticall {
         autoMinOutput = input * ((DIVISOR * 1e18) - ((slippage + 1e18) * 100)) / (DIVISOR * 1e18);
     }
 
+    function contributes(address meme, address account) external view returns (uint256 totalContributed,  uint256 accountContributed) {
+        address preMeme = IMeme(meme).preMeme();
+        totalContributed = IPreMeme(preMeme).totalBaseContributed();
+        accountContributed = IPreMeme(preMeme).account_BaseContributed(account);
+    }
+    
 }

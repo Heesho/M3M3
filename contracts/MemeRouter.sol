@@ -133,6 +133,10 @@ contract MemeRouter is Ownable {
         IERC20(base).approve(preMeme, msg.value);
         IPreMeme(preMeme).contribute(msg.sender, msg.value);
         emit MemeRouter__Contributed(meme, msg.sender, msg.value);
+        if (block.timestamp > IPreMeme(preMeme).endTimestamp() && !IPreMeme(preMeme).ended()) {
+            IPreMeme(preMeme).openMarket();
+            emit MemeRouter__MarketOpened(meme, IPreMeme(preMeme).totalBaseContributed(), IPreMeme(preMeme).totalMemeBalance());
+        }
     }
 
     function redeem(address meme) external {

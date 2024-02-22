@@ -26,7 +26,7 @@ const oneHundredThousand = convert("100000", 18);
 
 let owner, multisig, treasury, user0, user1, user2;
 let memeFactory, meme0, meme1, meme2;
-let multicall, graphMulticall, router;
+let multicall, router;
 let base;
 
 describe("local: test0", function () {
@@ -53,15 +53,6 @@ describe("local: test0", function () {
       base.address
     );
     console.log("- Multicall Initialized");
-
-    const graphMulticallArtifact = await ethers.getContractFactory(
-      "MemeGraphMulticall"
-    );
-    graphMulticall = await graphMulticallArtifact.deploy(
-      memeFactory.address,
-      base.address
-    );
-    console.log("- Graph Multicall Initialized");
 
     const routerArtifact = await ethers.getContractFactory("MemeRouter");
     router = await routerArtifact.deploy(memeFactory.address, base.address);
@@ -297,84 +288,6 @@ describe("local: test0", function () {
       .sell(meme0.address, await meme0.balanceOf(user1.address), 0, 1904422437);
   });
 
-  it("Meme0, user0", async function () {
-    console.log("******************************************************");
-    let res = await multicall.getMemeData(1, user0.address);
-    console.log("ADDRESS: ", res[0]);
-    console.log("NAME: ", res[1]);
-    console.log("SYMBOL: ", res[2]);
-    console.log();
-    console.log("URL: ", res[3]);
-    console.log("Status: ", res[4]);
-    console.log();
-    console.log("Reserve Virtual BASE: ", divDec(res[5]));
-    console.log("Reserve Real BASE: ", divDec(res[6]));
-    console.log("Reserve Real MEME: ", divDec(res[7]));
-    console.log("Max Supply: ", divDec(res[8]));
-    console.log();
-    console.log(
-      "Bonding Curve Base Balance: ",
-      divDec(await base.balanceOf(meme0.address))
-    );
-    console.log(
-      "Bonding Curve Meme Balance: ",
-      divDec(await meme0.balanceOf(meme0.address))
-    );
-    console.log(
-      "Fees Base Balance: ",
-      divDec(await base.balanceOf(await meme0.fees()))
-    );
-    console.log();
-    console.log("Floor Price: ", divDec(res[9]));
-    console.log("Market Price: ", divDec(res[10]));
-    console.log("TVL: ", divDec(res[11]));
-    console.log("Total Fees BASE: ", divDec(res[12]));
-    console.log();
-    console.log("Account Native: ", divDec(res[13]));
-    console.log("Account BASE: ", divDec(res[14]));
-    console.log("Account MEME: ", divDec(res[15]));
-    console.log("Account Claimable BASE: ", divDec(res[16]));
-  });
-
-  it("Meme1, user1", async function () {
-    console.log("******************************************************");
-    let res = await multicall.getMemeData(1, user1.address);
-    console.log("ADDRESS: ", res[0]);
-    console.log("NAME: ", res[1]);
-    console.log("SYMBOL: ", res[2]);
-    console.log();
-    console.log("URL: ", res[3]);
-    console.log("Status: ", res[4]);
-    console.log();
-    console.log("Reserve Virtual BASE: ", divDec(res[5]));
-    console.log("Reserve Real BASE: ", divDec(res[6]));
-    console.log("Reserve Real MEME: ", divDec(res[7]));
-    console.log("Max Supply: ", divDec(res[8]));
-    console.log();
-    console.log(
-      "Bonding Curve Base Balance: ",
-      divDec(await base.balanceOf(meme0.address))
-    );
-    console.log(
-      "Bonding Curve Meme Balance: ",
-      divDec(await meme0.balanceOf(meme0.address))
-    );
-    console.log(
-      "Fees Base Balance: ",
-      divDec(await base.balanceOf(await meme0.fees()))
-    );
-    console.log();
-    console.log("Floor Price: ", divDec(res[9]));
-    console.log("Market Price: ", divDec(res[10]));
-    console.log("TVL: ", divDec(res[11]));
-    console.log("Total Fees BASE: ", divDec(res[12]));
-    console.log();
-    console.log("Account Native: ", divDec(res[13]));
-    console.log("Account BASE: ", divDec(res[14]));
-    console.log("Account MEME: ", divDec(res[15]));
-    console.log("Account Claimable BASE: ", divDec(res[16]));
-  });
-
   it("Quote Buy In", async function () {
     console.log("******************************************************");
     let res = await multicall
@@ -429,31 +342,15 @@ describe("local: test0", function () {
     console.log("min BASE out", divDec(res.minOutput));
   });
 
-  it("Meme Data by array", async function () {
-    console.log("******************************************************");
-    let res = await multicall.getMemeDataArray([1, 2], user0.address);
-    console.log(res);
-  });
-
-  it("Meme Data by indexes", async function () {
-    console.log("******************************************************");
-    let res = await multicall.getMemeDataIndexes(
-      1,
-      (await multicall.getMemeCount()).add(1),
-      user0.address
-    );
-    console.log(res);
-  });
-
   it("Meme Data", async function () {
     console.log("******************************************************");
-    let res = await graphMulticall.getMemeData(meme0.address);
+    let res = await multicall.getMemeData(meme0.address);
     console.log(res);
   });
 
   it("Account Data", async function () {
     console.log("******************************************************");
-    let res = await graphMulticall.getAccountData(meme0.address, user0.address);
+    let res = await multicall.getAccountData(meme0.address, user0.address);
     console.log(res);
   });
 
@@ -466,7 +363,7 @@ describe("local: test0", function () {
 
   it("Account Data", async function () {
     console.log("******************************************************");
-    let res = await graphMulticall.getAccountData(meme0.address, user0.address);
+    let res = await multicall.getAccountData(meme0.address, user0.address);
     console.log(res);
   });
 

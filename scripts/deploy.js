@@ -73,7 +73,7 @@ const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 const convert = (amount, decimals) => ethers.utils.parseUnits(amount, decimals);
 
 // Contract Variables
-let factory, multicall, graphMulticall, router;
+let factory, multicall, router;
 let meme;
 
 /*===================================================================*/
@@ -82,24 +82,20 @@ let meme;
 async function getContracts() {
   factory = await ethers.getContractAt(
     "contracts/MemeFactory.sol:MemeFactory",
-    "0x3611c2F4a74eeb53e999BBD63e55c948a5E199Dc"
+    "0x35B527c64616295a7621a1a87e06b77504757dEB"
   );
   multicall = await ethers.getContractAt(
     "contracts/MemeMulticall.sol:MemeMulticall",
-    "0x67190Bb7a0479d8108AEfB61F111503337b02df2"
-  );
-  graphMulticall = await ethers.getContractAt(
-    "contracts/MemeGraphMulticall.sol:MemeGraphMulticall",
-    "0x18B01cc4C9eC26D38E806374c8D78C269a810Ba6"
+    "0xA2Bf0bD6447A080003dDf50396557018c39006E2"
   );
   router = await ethers.getContractAt(
     "contracts/MemeRouter.sol:MemeRouter",
-    "0x9ECC04Ac4a088c4880b15002AbA5ae29875e57f0"
+    "0x5A1A04D64824dA168F7cDe6d9Cc9f0dE91c6FBff"
   );
-  meme = await ethers.getContractAt(
-    "contracts/Meme.sol:Meme",
-    "0x6F9Aa96F0352C040eA45f7ADE52EFf6df3935dB3"
-  );
+  // meme = await ethers.getContractAt(
+  //   "contracts/Meme.sol:Meme",
+  //   "0x6F9Aa96F0352C040eA45f7ADE52EFf6df3935dB3"
+  // );
 
   console.log("Contracts Retrieved");
 }
@@ -137,23 +133,6 @@ async function deployMulticall() {
   console.log("Multicall Deployed at:", multicall.address);
 }
 
-async function deployGraphMulticall() {
-  console.log("Starting MemeGraphMulticall Deployment");
-  const multicallArtifact = await ethers.getContractFactory(
-    "MemeGraphMulticall"
-  );
-  const multicallContract = await multicallArtifact.deploy(
-    factory.address,
-    BASE_ADDRESS,
-    {
-      gasPrice: ethers.gasPrice,
-    }
-  );
-  graphMulticall = await multicallContract.deployed();
-  await sleep(5000);
-  console.log("GraphMulticall Deployed at:", graphMulticall.address);
-}
-
 async function deployRouter() {
   console.log("Starting MemeRouter Deployment");
   const routerArtifact = await ethers.getContractFactory("MemeRouter");
@@ -173,7 +152,6 @@ async function printDeployment() {
   console.log("**************************************************************");
   console.log("Factory: ", factory.address);
   console.log("Multicall: ", multicall.address);
-  console.log("GraphMulticall: ", graphMulticall.address);
   console.log("Router: ", router.address);
   console.log("**************************************************************");
 }
@@ -268,7 +246,6 @@ async function main() {
   // console.log("Starting System Deployment");
   // await deployFactory();
   // await deployMulticall();
-  // await deployGraphMulticall();
   // await deployRouter();
   // await printDeployment();
 
@@ -278,10 +255,9 @@ async function main() {
   // 2. Verify System
   //===================================================================
 
-  // console.log("Starting System Verificatrion Deployment");
+  console.log("Starting System Verificatrion Deployment");
   // await verifyFactory();
-  // await verifyMulticall();
-  // await verifyGraphMulticall();
+  await verifyMulticall();
   // await verifyRouter();
 
   //===================================================================
@@ -328,7 +304,7 @@ async function main() {
   // await router.sell(meme.address, ethers.utils.parseEther("1"), 0, 0);
 
   // claim
-  await router.claimFees([meme.address]);
+  // await router.claimFees([meme.address]);
 }
 
 main()
