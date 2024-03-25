@@ -7,88 +7,88 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-interface IMemeFactory {
+interface IHenloFactory {
     function treasury() external view returns (address);
 }
 
-contract PreMeme is ReentrancyGuard {
+contract PreKey is ReentrancyGuard {
     uint256 public constant DURATION = 3600;
     
     address public immutable base;
-    address public immutable meme;
+    address public immutable key;
 
     uint256 public immutable endTimestamp;
     bool public ended = false;
 
-    uint256 public totalMemeBalance;
+    uint256 public totalKeyBalance;
     uint256 public totalBaseContributed;
     mapping(address => uint256) public account_BaseContributed;
 
-    error PreMeme__ZeroInput();
-    error PreMeme__Concluded();
-    error PreMeme__InProgress();
-    error PreMeme__NotEligible();
+    error PreKey__ZeroInput();
+    error PreKey__Concluded();
+    error PreKey__InProgress();
+    error PreKey__NotEligible();
 
-    event PreMeme__Contributed(address indexed account, uint256 amount);
-    event PreMeme__MarketOpened(address indexed meme, uint256 totalMemeBalance, uint256 totalBaseContributed);
-    event PreMeme__Redeemed(address indexed account, uint256 amount);
+    event PreKey__Contributed(address indexed account, uint256 amount);
+    event PreKey__MarketOpened(address indexed key, uint256 totalKeyBalance, uint256 totalBaseContributed);
+    event PreKey__Redeemed(address indexed account, uint256 amount);
 
     constructor(address _base) {
         base = _base;
-        meme = msg.sender;
+        key = msg.sender;
         endTimestamp = block.timestamp + DURATION;
     }
 
     function contribute(address account, uint256 amount) external nonReentrant {
-        if (amount == 0) revert PreMeme__ZeroInput();
-        if (ended) revert PreMeme__Concluded();
+        if (amount == 0) revert PreKey__ZeroInput();
+        if (ended) revert PreKey__Concluded();
         totalBaseContributed += amount;
         account_BaseContributed[account] += amount;
         IERC20(base).transferFrom(msg.sender, address(this), amount);
-        emit PreMeme__Contributed(account, amount);
+        emit PreKey__Contributed(account, amount);
     }
 
     function openMarket() external {
-        if (endTimestamp > block.timestamp) revert PreMeme__InProgress();
-        if (ended) revert PreMeme__Concluded();
+        if (endTimestamp > block.timestamp) revert PreKey__InProgress();
+        if (ended) revert PreKey__Concluded();
         ended = true;
-        IERC20(base).approve(meme, totalBaseContributed);
-        Meme(meme).buy(totalBaseContributed, 0, 0, address(this), address(0));
-        totalMemeBalance = IERC20(meme).balanceOf(address(this));
-        Meme(meme).openMarket();
-        emit PreMeme__MarketOpened(meme, totalMemeBalance, totalBaseContributed);
+        IERC20(base).approve(key, totalBaseContributed);
+        Key(key).buy(totalBaseContributed, 0, 0, address(this), address(0));
+        totalKeyBalance = IERC20(key).balanceOf(address(this));
+        Key(key).openMarket();
+        emit PreKey__MarketOpened(key, totalKeyBalance, totalBaseContributed);
     }
 
     function redeem(address account) external nonReentrant {
-        if (!ended) revert PreMeme__InProgress();
+        if (!ended) revert PreKey__InProgress();
         uint256 contribution = account_BaseContributed[account];
-        if (contribution == 0) revert PreMeme__NotEligible();
+        if (contribution == 0) revert PreKey__NotEligible();
         account_BaseContributed[account] = 0;
-        uint256 memeAmount = totalMemeBalance * contribution / totalBaseContributed;
-        IERC20(meme).transfer(account, memeAmount);
-        emit PreMeme__Redeemed(account, memeAmount);
+        uint256 keyAmount = totalKeyBalance * contribution / totalBaseContributed;
+        IERC20(key).transfer(account, keyAmount);
+        emit PreKey__Redeemed(account, keyAmount);
     }
     
 }
 
-contract MemeFees {
+contract KeyFees {
 
     address internal immutable base;
-    address internal immutable meme;
+    address internal immutable key;
 
     constructor(address _base) {
-        meme = msg.sender;
+        key = msg.sender;
         base = _base;
     }
 
     function claimFeesFor(address recipient, uint amountBase) external {
-        require(msg.sender == meme);
+        require(msg.sender == key);
         if (amountBase > 0) IERC20(base).transfer(recipient, amountBase);
     }
 
 }
 
-contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
+contract Key is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     /*----------  CONSTANTS  --------------------------------------------*/
 
@@ -98,22 +98,20 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public constant FEE = 100;
     uint256 public constant FEE_AMOUNT = 2000;
     uint256 public constant DIVISOR = 10000;
-    uint256 public constant STATUS_MAX_LENGTH = 280;
-    uint256 public constant STATUS_UPDATE_FEE = 10 * PRECISION;
 
     /*----------  STATE VARIABLES  --------------------------------------*/
 
     address public immutable base;
     address public immutable fees;
-    address public immutable factory;
-    address public immutable preMeme;
+    address public immutable henloFactory;
+    address public immutable preKey;
 
     uint256 public maxSupply = INITIAL_SUPPLY;
     bool public open = false;
 
     // bonding curve state
     uint256 public reserveBase = 0;
-    uint256 public reserveMeme = INITIAL_SUPPLY;
+    uint256 public reserveKey = INITIAL_SUPPLY;
 
     // fees state
     uint256 public totalFeesBase;
@@ -125,62 +123,52 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public totalDebt;
     mapping(address => uint256) public account_Debt;
 
-    address public statusHolder;
-    string public uri;
-    string public status;
-
     /*----------  ERRORS ------------------------------------------------*/
 
-    error Meme__ZeroInput();
-    error Meme__Expired();
-    error Meme__SlippageToleranceExceeded();
-    error Meme__StatusLimitExceeded();
-    error Meme__StatusRequired();
-    error Meme__MarketNotOpen();
-    error Meme__NotAuthorized();
-    error Meme__OutstandingDebt();
-    error Meme__CreditLimit();
+    error Key__ZeroInput();
+    error Key__Expired();
+    error Key__SlippageToleranceExceeded();
+    error Key__MarketNotOpen();
+    error Key__NotAuthorized();
+    error Key__OutstandingDebt();
+    error Key__CreditLimit();
 
     /*----------  EVENTS ------------------------------------------------*/
 
-    event Meme__Buy(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
-    event Meme__Sell(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
-    event Meme__Fees(address indexed account, uint256 amountBase, uint256 amountMeme);
-    event Meme__Claim(address indexed account, uint256 amountBase);
-    event Meme__StatusUpdated(address indexed account, string status);
-    event Meme__StatusFee(address indexed account, uint256 amountBase);
-    event Meme__ProviderFee(address indexed account, uint256 amountBase);
-    event Meme__ProtocolFee(address indexed account, uint256 amountBase);
-    event Meme__Burn(address indexed account, uint256 amountMeme);
-    event Meme__Borrow(address indexed account, uint256 amountBase);
-    event Meme__Repay(address indexed account, uint256 amountBase);
+    event Key__Buy(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
+    event Key__Sell(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
+    event Key__Fees(address indexed account, uint256 amountBase, uint256 amountKey);
+    event Key__Claim(address indexed account, uint256 amountBase);
+    event Key__StatusUpdated(address indexed account, string status);
+    event Key__StatusFee(address indexed account, uint256 amountBase);
+    event Key__ProviderFee(address indexed account, uint256 amountBase);
+    event Key__ProtocolFee(address indexed account, uint256 amountBase);
+    event Key__Burn(address indexed account, uint256 amountKey);
+    event Key__Borrow(address indexed account, uint256 amountBase);
+    event Key__Repay(address indexed account, uint256 amountBase);
 
     /*----------  MODIFIERS  --------------------------------------------*/
 
     modifier notExpired(uint256 expireTimestamp) {
-        if (expireTimestamp != 0 && expireTimestamp < block.timestamp) revert Meme__Expired();
+        if (expireTimestamp != 0 && expireTimestamp < block.timestamp) revert Key__Expired();
         _;
     }
 
     modifier notZeroInput(uint256 _amount) {
-        if (_amount == 0) revert Meme__ZeroInput();
+        if (_amount == 0) revert Key__ZeroInput();
         _;
     }
 
     /*----------  FUNCTIONS  --------------------------------------------*/
 
-    constructor(string memory _name, string memory _symbol, string memory _uri, address _base, address account)
+    constructor(string memory _name, string memory _symbol, address _base, address _henloFactory)
         ERC20(_name, _symbol)
         ERC20Permit(_name)
     {
-        factory = msg.sender;
+        henloFactory = _henloFactory;
         base = _base;
-        fees = address(new MemeFees(_base));
-        preMeme = address(new PreMeme(_base));
-
-        uri = _uri;
-        status = "Bm, would you like to say henlo?";
-        statusHolder = account;
+        fees = address(new KeyFees(_base));
+        preKey = address(new PreKey(_base));
     }
 
     function buy(uint256 amountIn, uint256 minAmountOut, uint256 expireTimestamp, address to, address provider) 
@@ -189,40 +177,36 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         notZeroInput(amountIn)
         notExpired(expireTimestamp) 
     {
-        if (!open && msg.sender != preMeme) revert Meme__MarketNotOpen();
+        if (!open && msg.sender != preKey) revert Key__MarketNotOpen();
 
         uint256 feeBase = amountIn * FEE / DIVISOR;
         uint256 newReserveBase = RESERVE_VIRTUAL_BASE + reserveBase + amountIn - feeBase;
-        uint256 newReserveMeme = (RESERVE_VIRTUAL_BASE + reserveBase) * reserveMeme / newReserveBase;
-        uint256 amountOut = reserveMeme - newReserveMeme;
+        uint256 newReserveKey = (RESERVE_VIRTUAL_BASE + reserveBase) * reserveKey / newReserveBase;
+        uint256 amountOut = reserveKey - newReserveKey;
 
-        if (amountOut < minAmountOut) revert Meme__SlippageToleranceExceeded();
+        if (amountOut < minAmountOut) revert Key__SlippageToleranceExceeded();
 
         reserveBase = newReserveBase - RESERVE_VIRTUAL_BASE;
-        reserveMeme = newReserveMeme;
+        reserveKey = newReserveKey;
 
-        emit Meme__Buy(msg.sender, to, amountIn, amountOut);
+        emit Key__Buy(msg.sender, to, amountIn, amountOut);
 
         IERC20(base).transferFrom(msg.sender, address(this), amountIn);
         if (provider != address(0)) {
             uint256 feeAmount = feeBase * FEE_AMOUNT / DIVISOR;
 
             IERC20(base).transfer(provider, feeAmount);
-            emit Meme__ProviderFee(provider, feeAmount);
-            IERC20(base).transfer(statusHolder, feeAmount);
-            emit Meme__StatusFee(statusHolder, feeAmount);
-            IERC20(base).transfer(IMemeFactory(factory).treasury(), feeAmount);
-            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), feeAmount);
+            emit Key__ProviderFee(provider, feeAmount);
+            IERC20(base).transfer(IHenloFactory(henloFactory).treasury(), feeAmount);
+            emit Key__ProtocolFee(IHenloFactory(henloFactory).treasury(), feeAmount);
 
-            feeBase -= (3 * feeAmount);
+            feeBase -= (2 * feeAmount);
         } else {
             uint256 feeAmount = feeBase * FEE_AMOUNT / DIVISOR;
 
-            IERC20(base).transfer(statusHolder, feeAmount);
-            emit Meme__StatusFee(statusHolder, feeAmount);
-            IERC20(base).transfer(IMemeFactory(factory).treasury(), feeAmount);
-            emit Meme__ProtocolFee(IMemeFactory(factory).treasury(), feeAmount);
-            feeBase -= (2 * feeAmount);
+            IERC20(base).transfer(IHenloFactory(henloFactory).treasury(), feeAmount);
+            emit Key__ProtocolFee(IHenloFactory(henloFactory).treasury(), feeAmount);
+            feeBase -= feeAmount;
         }
         _mint(to, amountOut);
         _updateBase(feeBase); 
@@ -234,20 +218,20 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         notZeroInput(amountIn)
         notExpired(expireTimestamp) 
     {
-        uint256 feeMeme = amountIn * FEE / DIVISOR;
-        uint256 newReserveMeme = reserveMeme + amountIn - feeMeme;
-        uint256 newReserveBase = (RESERVE_VIRTUAL_BASE + reserveBase) * reserveMeme / newReserveMeme;
+        uint256 feeKey = amountIn * FEE / DIVISOR;
+        uint256 newReserveKey = reserveKey + amountIn - feeKey;
+        uint256 newReserveBase = (RESERVE_VIRTUAL_BASE + reserveBase) * reserveKey / newReserveKey;
         uint256 amountOut = RESERVE_VIRTUAL_BASE + reserveBase - newReserveBase;
 
-        if (amountOut < minAmountOut) revert Meme__SlippageToleranceExceeded();
+        if (amountOut < minAmountOut) revert Key__SlippageToleranceExceeded();
 
         reserveBase = newReserveBase - RESERVE_VIRTUAL_BASE;
-        reserveMeme = newReserveMeme;
+        reserveKey = newReserveKey;
 
-        emit Meme__Sell(msg.sender, to, amountIn, amountOut);
+        emit Key__Sell(msg.sender, to, amountIn, amountOut);
 
-        _burn(msg.sender, amountIn - feeMeme);
-        burnMeme(feeMeme);
+        _burn(msg.sender, amountIn - feeKey);
+        burnKey(feeKey);
         IERC20(base).transfer(to, amountOut);
     }
 
@@ -257,10 +241,10 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         notZeroInput(amountBase)
     {
         uint256 credit = getAccountCredit(msg.sender);
-        if (credit < amountBase) revert Meme__CreditLimit();
+        if (credit < amountBase) revert Key__CreditLimit();
         totalDebt += amountBase;
         account_Debt[msg.sender] += amountBase;
-        emit Meme__Borrow(msg.sender, amountBase);
+        emit Key__Borrow(msg.sender, amountBase);
         IERC20(base).transfer(msg.sender, amountBase);
     }
 
@@ -271,7 +255,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     {
         totalDebt -= amountBase;
         account_Debt[msg.sender] -= amountBase;
-        emit Meme__Repay(msg.sender, amountBase);
+        emit Key__Repay(msg.sender, amountBase);
         IERC20(base).transferFrom(msg.sender, address(this), amountBase);
     }
 
@@ -286,37 +270,33 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         if (claimedBase > 0) {
             claimableBase[account] = 0;
 
-            MemeFees(fees).claimFeesFor(account, claimedBase);
+            KeyFees(fees).claimFeesFor(account, claimedBase);
 
-            emit Meme__Claim(account, claimedBase);
+            emit Key__Claim(account, claimedBase);
         }
     }
 
-    function updateStatus(address account, string memory _status) 
-        external 
-    {
-        if (!open) revert Meme__MarketNotOpen();
-        if (bytes(_status).length == 0) revert Meme__StatusRequired();
-        if (bytes(_status).length > STATUS_MAX_LENGTH) revert Meme__StatusLimitExceeded();
-        burnMeme(STATUS_UPDATE_FEE);
-        status = _status;
-        statusHolder = account;
-        emit Meme__StatusUpdated(account, _status);
-    }
-
-    function burnMeme(uint256 amount) 
+    function burnKey(uint256 amount) 
         public 
         notZeroInput(amount)
     {
         maxSupply -= amount;
         _burn(msg.sender, amount);
-        emit Meme__Burn(msg.sender, amount);
+        emit Key__Burn(msg.sender, amount);
+    }
+
+    function donate(uint256 amount) 
+        external 
+        notZeroInput(amount)
+    {
+        IERC20(base).transferFrom(msg.sender, address(this), amount);
+        _updateBase(amount);
     }
 
     /*----------  RESTRICTED FUNCTIONS  ---------------------------------*/
 
     function openMarket() external {
-        if (msg.sender != preMeme) revert Meme__NotAuthorized();
+        if (msg.sender != preKey) revert Key__NotAuthorized();
         open = true;
     }
 
@@ -327,7 +307,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         if (_ratio > 0) {
             indexBase += _ratio;
         }
-        emit Meme__Fees(msg.sender, amount, 0);
+        emit Key__Fees(msg.sender, amount, 0);
     }
     
     function _updateFor(address recipient) internal {
@@ -360,7 +340,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         override(ERC20)
     {
         super._beforeTokenTransfer(from, to, amount);
-        if (account_Debt[from] > 0) revert Meme__OutstandingDebt();
+        if (account_Debt[from] > 0) revert Key__OutstandingDebt();
         _updateFor(from);
         _updateFor(to);
     }
@@ -382,7 +362,7 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     /*----------  VIEW FUNCTIONS  ---------------------------------------*/
 
     function getMarketPrice() external view returns (uint256) {
-        return ((RESERVE_VIRTUAL_BASE + reserveBase) * PRECISION) / reserveMeme;
+        return ((RESERVE_VIRTUAL_BASE + reserveBase) * PRECISION) / reserveKey;
     }
 
     function getFloorPrice() external view returns (uint256) {
@@ -394,4 +374,31 @@ contract Meme is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         return ((RESERVE_VIRTUAL_BASE * INITIAL_SUPPLY / (INITIAL_SUPPLY - balanceOf(account))) - RESERVE_VIRTUAL_BASE) - account_Debt[account];
     }
 
+}
+
+contract KeyFactory {
+
+    address public immutable henloFactory;
+    address public lastKey;
+
+    error KeyFactory__Unauthorized();
+
+    event KeyFactory__KeyCreated(address key);
+
+    constructor(address _henloFactory) {
+        henloFactory = _henloFactory;
+    }
+
+    function createKey(
+        string memory name,
+        string memory symbol,
+        address base
+    ) external returns (address) {
+        if (msg.sender != henloFactory) revert KeyFactory__Unauthorized();
+
+        lastKey = address(new Key(name, symbol, base, henloFactory));
+        emit KeyFactory__KeyCreated(lastKey);
+
+        return lastKey;
+    }
 }
